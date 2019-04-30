@@ -5,6 +5,7 @@ use crate::order::Product;
 use crate::progress::timestamp::Refines;
 use crate::communication::Allocate;
 use crate::worker::AsWorker;
+use crate::state::{StateBackend, StateHandle};
 
 pub mod child;
 
@@ -27,6 +28,9 @@ impl<A: Allocate> ScopeParent for crate::worker::Worker<A> {
 /// takes a shared reference, but can be thought of as first calling .clone() and then calling the
 /// method. Each method does not hold the `RefCell`'s borrow, and should prevent accidental panics.
 pub trait Scope: ScopeParent {
+    /// The state backend associated with this scope.
+    type StateBackend: StateBackend;
+
     /// A useful name describing the scope.
     fn name(&self) -> String;
 
@@ -94,7 +98,10 @@ pub trait Scope: ScopeParent {
     fn scoped<T, R, F>(&mut self, name: &str, func: F) -> R
     where
         T: Timestamp+Refines<<Self as ScopeParent>::Timestamp>,
-        F: FnOnce(&mut Child<Self, T>) -> R;
+        F: FnOnce(&mut Child<Self, T, Self::StateBackend>) -> R;
+
+    /// A handle for accessing managed state
+    fn get_state_handle(&self) -> StateHandle<Self::StateBackend>;
 
     /// Creates a iterative dataflow subgraph.
     ///
@@ -121,7 +128,7 @@ pub trait Scope: ScopeParent {
     fn iterative<T, R, F>(&mut self, func: F) -> R
     where
         T: Timestamp,
-        F: FnOnce(&mut Child<Self, Product<<Self as ScopeParent>::Timestamp, T>>) -> R,
+        F: FnOnce(&mut Child<Self, Product<<Self as ScopeParent>::Timestamp, T>, Self::StateBackend>) -> R,
     {
         self.scoped::<Product<<Self as ScopeParent>::Timestamp, T>,R,F>("Iterative", func)
     }
@@ -150,7 +157,7 @@ pub trait Scope: ScopeParent {
     /// ```
     fn region<R, F>(&mut self, func: F) -> R
     where
-        F: FnOnce(&mut Child<Self, <Self as ScopeParent>::Timestamp>) -> R,
+        F: FnOnce(&mut Child<Self, <Self as ScopeParent>::Timestamp, Self::StateBackend>) -> R,
     {
         self.scoped::<<Self as ScopeParent>::Timestamp,R,F>("Region", func)
     }

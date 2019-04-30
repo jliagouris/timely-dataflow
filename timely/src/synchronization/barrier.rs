@@ -3,6 +3,7 @@
 use crate::communication::Allocate;
 use crate::dataflow::{InputHandle, ProbeHandle};
 use crate::worker::Worker;
+use crate::state::InMemoryBackend;
 
 /// A re-usable barrier synchronization mechanism.
 pub struct Barrier<A: Allocate> {
@@ -16,7 +17,7 @@ impl<A: Allocate> Barrier<A> {
     /// Allocates a new barrier.
     pub fn new(worker: &mut Worker<A>) -> Self {
         use crate::dataflow::operators::{Input, Probe};
-        let (input, probe) = worker.dataflow(|scope| {
+        let (input, probe) = worker.dataflow::<_, _, _,InMemoryBackend>(|scope| {
             let (handle, stream) = scope.new_input::<()>();
             (handle, stream.probe())
         });

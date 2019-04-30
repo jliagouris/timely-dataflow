@@ -64,7 +64,7 @@ pub trait LoopVariable<'a, G: Scope, T: Timestamp> {
     ///     });
     /// });
     /// ```
-    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'a, G, T>, D>, Stream<Iterative<'a, G, T>, D>);
+    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'a, G, T, G::StateBackend>, D>, Stream<Iterative<'a, G, T, G::StateBackend>, D>);
 }
 
 impl<G: Scope> Feedback<G> for G {
@@ -77,8 +77,8 @@ impl<G: Scope> Feedback<G> for G {
     }
 }
 
-impl<'a, G: Scope, T: Timestamp> LoopVariable<'a, G, T> for Iterative<'a, G, T> {
-    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'a, G, T>, D>, Stream<Iterative<'a, G, T>, D>) {
+impl<'a, G: Scope, T: Timestamp> LoopVariable<'a, G, T> for Iterative<'a, G, T, G::StateBackend> {
+    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'a, G, T, G::StateBackend>, D>, Stream<Iterative<'a, G, T, G::StateBackend>, D>) {
         self.feedback(Product::new(Default::default(), summary))
     }
 }

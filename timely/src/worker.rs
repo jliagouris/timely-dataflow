@@ -15,6 +15,7 @@ use crate::progress::SubgraphBuilder;
 use crate::progress::operate::Operate;
 use crate::dataflow::scopes::Child;
 use crate::logging::TimelyLogger;
+use crate::timely_state::StateBackend;
 
 /// Methods provided by the root Worker.
 ///
@@ -342,10 +343,11 @@ impl<A: Allocate> Worker<A> {
     ///     });
     /// });
     /// ```
-    pub fn dataflow<T, R, F>(&mut self, func: F) -> R
+    pub fn dataflow<T, R, F, S>(&mut self, func: F) -> R
     where
         T: Refines<()>,
-        F: FnOnce(&mut Child<Self, T>)->R,
+        F: FnOnce(&mut Child<Self, T, S>)->R,
+        S: StateBackend
     {
         let logging = self.logging.borrow_mut().get("timely");
         self.dataflow_core("Dataflow", logging, Box::new(()), |_, child| func(child))
@@ -376,11 +378,12 @@ impl<A: Allocate> Worker<A> {
     ///     );
     /// });
     /// ```
-    pub fn dataflow_core<T, R, F, V>(&mut self, name: &str, mut logging: Option<TimelyLogger>, mut resources: V, func: F) -> R
+    pub fn dataflow_core<T, R, F, V, S>(&mut self, name: &str, mut logging: Option<TimelyLogger>, mut resources: V, func: F) -> R
     where
         T: Refines<()>,
-        F: FnOnce(&mut V, &mut Child<Self, T>)->R,
+        F: FnOnce(&mut V, &mut Child<Self, T, S>)->R,
         V: Any+'static,
+        S: StateBackend,
     {
         let addr = vec![];
         let dataflow_index = self.allocate_dataflow_index();
@@ -394,6 +397,7 @@ impl<A: Allocate> Worker<A> {
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: logging.clone(),
+                state_backend: Rc::new(RefCell::new(S::new()))
             };
             func(&mut resources, &mut builder)
         };

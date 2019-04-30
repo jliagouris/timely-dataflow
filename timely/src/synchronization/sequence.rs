@@ -12,6 +12,7 @@ use crate::dataflow::channels::pact::Exchange;
 use crate::dataflow::operators::generic::operator::source;
 use crate::dataflow::operators::generic::operator::Operator;
 use crate::scheduling::activate::Activator;
+use crate::state::InMemoryBackend;
 
 // A Sequencer needs all operators firing with high frequency, because
 // it uses the timer to gauge progress. If other workers cease
@@ -110,7 +111,7 @@ impl<T: ExchangeData> Sequencer<T> {
         let activator_sink = activator.clone();
 
         // build a dataflow used to serialize and circulate commands
-        worker.dataflow::<Duration,_,_>(move |dataflow| {
+        worker.dataflow::<Duration,_,_,InMemoryBackend>(move |dataflow| {
 
             let scope = dataflow.clone();
             let peers = dataflow.peers();

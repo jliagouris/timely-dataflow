@@ -53,7 +53,7 @@ pub trait Enter<G: Scope, T: Timestamp+Refines<G::Timestamp>, D: Data> {
     ///     });
     /// });
     /// ```
-    fn enter<'a>(&self, _: &Child<'a, G, T>) -> Stream<Child<'a, G, T>, D>;
+    fn enter<'a>(&self, _: &Child<'a, G, T, G::StateBackend>) -> Stream<Child<'a, G, T, G::StateBackend>, D>;
 }
 
 use crate::dataflow::scopes::child::Iterative;
@@ -74,18 +74,18 @@ pub trait EnterAt<G: Scope, T: Timestamp, D: Data> {
     ///     });
     /// });
     /// ```
-    fn enter_at<'a, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'a, G, T>, initial: F) -> Stream<Iterative<'a, G, T>, D> ;
+    fn enter_at<'a, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'a, G, T, G::StateBackend>, initial: F) -> Stream<Iterative<'a, G, T, G::StateBackend>, D> ;
 }
 
 impl<G: Scope, T: Timestamp, D: Data, E: Enter<G, Product<<G as ScopeParent>::Timestamp, T>, D>> EnterAt<G, T, D> for E {
-    fn enter_at<'a, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'a, G, T>, initial: F) ->
-        Stream<Iterative<'a, G, T>, D> {
+    fn enter_at<'a, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'a, G, T, G::StateBackend>, initial: F) ->
+        Stream<Iterative<'a, G, T, G::StateBackend>, D> {
             self.enter(scope).delay(move |datum, time| Product::new(time.clone().to_outer(), initial(datum)))
     }
 }
 
 impl<G: Scope, T: Timestamp+Refines<G::Timestamp>, D: Data> Enter<G, T, D> for Stream<G, D> {
-    fn enter<'a>(&self, scope: &Child<'a, G, T>) -> Stream<Child<'a, G, T>, D> {
+    fn enter<'a>(&self, scope: &Child<'a, G, T, G::StateBackend>) -> Stream<Child<'a, G, T, G::StateBackend>, D> {
 
         let (targets, registrar) = Tee::<T, D>::new();
         let ingress = IngressNub { targets: Counter::new(targets), phantom: ::std::marker::PhantomData };
@@ -118,7 +118,7 @@ pub trait Leave<G: Scope, D: Data> {
     fn leave(&self) -> Stream<G, D>;
 }
 
-impl<'a, G: Scope, D: Data, T: Timestamp+Refines<G::Timestamp>> Leave<G, D> for Stream<Child<'a, G, T>, D> {
+impl<'a, G: Scope, D: Data, T: Timestamp+Refines<G::Timestamp>> Leave<G, D> for Stream<Child<'a, G, T, G::StateBackend>, D> {
     fn leave(&self) -> Stream<G, D> {
 
         let scope = self.scope();

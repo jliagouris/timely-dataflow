@@ -5,6 +5,7 @@ members = [
     "kafkaesque",
     "logging",
     "sort",
+    "state",
     "timely",
 ]
 

@@ -13,18 +13,20 @@ use crate::progress::timestamp::Refines;
 use crate::order::Product;
 use crate::logging::TimelyLogger as Logger;
 use crate::worker::AsWorker;
+use crate::timely_state::{StateBackend, StateHandle};
 
 use super::{ScopeParent, Scope};
 
 /// Type alias for iterative child scope.
-pub type Iterative<'a, G, T> = Child<'a, G, Product<<G as ScopeParent>::Timestamp, T>>;
+pub type Iterative<'a, G, T, S> = Child<'a, G, Product<<G as ScopeParent>::Timestamp, T>, S>;
 
 /// A `Child` wraps a `Subgraph` and a parent `G: Scope`. It manages the addition
 /// of `Operate`s to a subgraph, and the connection of edges between them.
-pub struct Child<'a, G, T>
+pub struct Child<'a, G, T, S>
 where
     G: ScopeParent,
-    T: Timestamp+Refines<G::Timestamp>
+    T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend,
 {
     /// The subgraph under assembly.
     pub subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>,
@@ -32,12 +34,15 @@ where
     pub parent:   G,
     /// The log writer for this scope.
     pub logging:  Option<Logger>,
+    /// The state backend for this code.
+    pub state_backend: Rc<RefCell<S>>,
 }
 
-impl<'a, G, T> Child<'a, G, T>
+impl<'a, G, T, S> Child<'a, G, T, S>
 where
     G: ScopeParent,
-    T: Timestamp+Refines<G::Timestamp>
+    T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend
 {
     /// This worker's unique identifier.
     ///
@@ -47,10 +52,11 @@ where
     pub fn peers(&self) -> usize { self.parent.peers() }
 }
 
-impl<'a, G, T> AsWorker for Child<'a, G, T>
+impl<'a, G, T, S> AsWorker for Child<'a, G, T, S>
 where
     G: ScopeParent,
-    T: Timestamp+Refines<G::Timestamp>
+    T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend
 {
     fn index(&self) -> usize { self.parent.index() }
     fn peers(&self) -> usize { self.parent.peers() }
@@ -68,29 +74,34 @@ where
     }
 }
 
-impl<'a, G, T> Scheduler for Child<'a, G, T>
+impl<'a, G, T, S> Scheduler for Child<'a, G, T, S>
 where
     G: ScopeParent,
-    T: Timestamp+Refines<G::Timestamp>
+    T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend
 {
     fn activations(&self) -> Rc<RefCell<Activations>> {
         self.parent.activations()
     }
 }
 
-impl<'a, G, T> ScopeParent for Child<'a, G, T>
+impl<'a, G, T, S> ScopeParent for Child<'a, G, T, S>
 where
     G: ScopeParent,
-    T: Timestamp+Refines<G::Timestamp>
+    T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend
 {
     type Timestamp = T;
 }
 
-impl<'a, G, T> Scope for Child<'a, G, T>
+impl<'a, G, T, S> Scope for Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend
 {
+    type StateBackend = S;
+
     fn name(&self) -> String { self.subgraph.borrow().name.clone() }
     fn addr(&self) -> Vec<usize> { self.subgraph.borrow().path.clone() }
     fn add_edge(&self, source: Source, target: Target) {
@@ -109,7 +120,7 @@ where
     fn scoped<T2, R, F>(&mut self, name: &str, func: F) -> R
     where
         T2: Timestamp+Refines<T>,
-        F: FnOnce(&mut Child<Self, T2>) -> R,
+        F: FnOnce(&mut Child<Self, T2, S>) -> R,
     {
         let index = self.subgraph.borrow_mut().allocate_child_id();
         let path = self.subgraph.borrow().path.clone();
@@ -120,6 +131,7 @@ where
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: self.logging.clone(),
+                state_backend: self.state_backend.clone(),
             };
             func(&mut builder)
         };
@@ -129,20 +141,28 @@ where
 
         result
     }
+
+    fn get_state_handle(&self) -> StateHandle<S> {
+        StateHandle {
+            backend: self.state_backend.clone()
+        }
+    }
 }
 
 use crate::communication::Message;
 
-impl<'a, G, T> Clone for Child<'a, G, T>
+impl<'a, G, T, S> Clone for Child<'a, G, T, S>
 where
     G: ScopeParent,
-    T: Timestamp+Refines<G::Timestamp>
+    T: Timestamp+Refines<G::Timestamp>,
+    S: StateBackend
 {
     fn clone(&self) -> Self {
         Child {
             subgraph: self.subgraph,
             parent: self.parent.clone(),
-            logging: self.logging.clone()
+            logging: self.logging.clone(),
+            state_backend: self.state_backend.clone(),
         }
     }
 }

@@ -66,6 +66,7 @@ extern crate serde_derive;
 extern crate timely_communication;
 extern crate timely_bytes;
 extern crate timely_logging;
+extern crate timely_state;
 
 pub use execute::{execute, execute_directly, execute_from_args, example};
 pub use order::PartialOrder;
@@ -85,6 +86,11 @@ pub mod bytes {
 /// Re-export of the `timely_logging` crate.
 pub mod logging_core {
     pub use timely_logging::*;
+}
+
+/// Re-export of the `timely_state` crate.
+pub mod state {
+    pub use timely_state::*;
 }
 
 pub mod worker;
