@@ -6,7 +6,6 @@ pub struct InMemoryBackend {
     counts: HashMap<String, u64>,
 }
 
-
 impl StateBackend for InMemoryBackend {
     fn new() -> Self {
         InMemoryBackend {
@@ -18,8 +17,8 @@ impl StateBackend for InMemoryBackend {
     }
     fn get_count(&self, name: &str) -> u64 {
         match self.counts.get(name) {
-            None => {0},
-            Some(count) => {*count},
+            None => 0,
+            Some(count) => *count,
         }
     }
 }
