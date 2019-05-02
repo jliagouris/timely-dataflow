@@ -1,4 +1,5 @@
 use timely::dataflow::operators::Inspect;
+use timely::state::InMemoryBackend;
 
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{Consumer, BaseConsumer, DefaultConsumerContext};
@@ -28,7 +29,7 @@ fn main() {
     timely::execute_from_args(args, move |worker| {
 
         // A dataflow for producing spans.
-        worker.dataflow::<u64,_,_>(|scope| {
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope| {
 
             // Create a Kafka consumer.
             let consumer : BaseConsumer<DefaultConsumerContext> = consumer_config.create().expect("Couldn't create consumer");

@@ -1,6 +1,7 @@
 use timely::dataflow::operators::Inspect;
 use timely::dataflow::operators::capture::Replay;
 use timely::dataflow::operators::Accumulate;
+use timely::state::InMemoryBackend;
 
 use rdkafka::config::ClientConfig;
 
@@ -35,7 +36,7 @@ fn main() {
             })
             .collect::<Vec<_>>();
 
-        worker.dataflow::<u64,_,_>(|scope| {
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope| {
             replayers
                 .replay_into(scope)
                 .count()

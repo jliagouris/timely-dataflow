@@ -1,5 +1,6 @@
 use timely::dataflow::operators::ToStream;
 use timely::dataflow::operators::capture::Capture;
+use timely::state::InMemoryBackend;
 
 use rdkafka::config::ClientConfig;
 
@@ -22,7 +23,7 @@ fn main() {
         let topic = format!("{}-{:?}", topic, worker.index());
         let producer = EventProducer::new(producer_config, topic);
 
-        worker.dataflow::<u64,_,_>(|scope|
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope|
             (0 .. count)
                 .to_stream(scope)
                 .capture_into(producer)
