@@ -17,6 +17,7 @@ pub struct StateHandle<T: StateBackend> {
 pub struct ManagedCount<T: StateBackend> {
     backend: Rc<RefCell<T>>,
     name: String,
+    count: u64,
 }
 
 impl <T: 'static + StateBackend> StateHandle<T> {
@@ -24,13 +25,19 @@ impl <T: 'static + StateBackend> StateHandle<T> {
         ManagedCount {
             backend: self.backend.clone(),
             name: name.to_owned(),
+            count: self.backend.borrow().get_count(name),
         }
     }
 }
 
 impl <T: 'static + StateBackend> ManagedCount<T> {
-    pub fn incr(&self, amount: u64) {
-        self.backend.borrow_mut().store_count(&self.name, amount + 42);
+    pub fn incr(&mut self, amount: u64) {
+        self.count += amount;
+        self.backend.borrow_mut().store_count(&self.name, self.count);
+    }
+
+    pub fn get(&self) -> u64 {
+        self.count
     }
 }
 
