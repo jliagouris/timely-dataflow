@@ -11,6 +11,7 @@ use timely_sort::LSBRadixSorter as Sorter;
 use timely::dataflow::operators::{ToStream, Concat, Feedback, ConnectLoop};
 use timely::dataflow::operators::generic::operator::Operator;
 use timely::dataflow::channels::pact::Exchange;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
 
@@ -41,7 +42,7 @@ fn main() {
 
         let start = std::time::Instant::now();
 
-        worker.dataflow::<usize,_,_>(move |scope| {
+        worker.dataflow::<usize,_,_,InMemoryBackend>(move |scope| {
 
             // generate part of a random graph.
             let graph = (0..edges / peers)

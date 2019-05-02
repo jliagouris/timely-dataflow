@@ -9,6 +9,7 @@ use timely::dataflow::*;
 use timely::dataflow::operators::{Input, Exchange, Probe};
 use timely::dataflow::operators::generic::operator::Operator;
 use timely::dataflow::channels::pact::Pipeline;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
 
@@ -25,7 +26,7 @@ fn main() {
         let mut input = InputHandle::new();
         let mut probe = ProbeHandle::new();
 
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
             scope.input_from(&mut input)
                 //  .exchange(move |x: &(usize, usize)| (x.0 % (peers - 1)) as u64 + 1)
                  .union_find()

@@ -8,6 +8,7 @@ use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Feedback, ConnectLoop, Probe};
 use timely::dataflow::operators::generic::Operator;
 use timely::dataflow::channels::pact::Exchange;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
 
@@ -16,7 +17,7 @@ fn main() {
         let mut input = InputHandle::new();
         let mut probe = ProbeHandle::new();
 
-        worker.dataflow::<usize,_,_>(|scope| {
+        worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
 
             // create a new input, into which we can push edge changes.
             let edge_stream = input.to_stream(scope);

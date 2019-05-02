@@ -4,6 +4,7 @@ extern crate timely;
 use std::rc::Rc;
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Input, Inspect, Probe};
+use timely::state::backends::InMemoryBackend;
 use abomonation::Abomonation;
 
 #[derive(Debug, Clone)]
@@ -23,7 +24,7 @@ fn main() {
         let index = worker.index();
         let mut input = InputHandle::new();
         let mut probe = ProbeHandle::new();
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
             scope.input_from(&mut input)
                  //.exchange(|x| *x) // <-- cannot exchange this; Rc is not Send.
                  .inspect(move |x| println!("worker {}:\thello {:?}", index, x))

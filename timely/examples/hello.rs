@@ -2,6 +2,7 @@ extern crate timely;
 
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Input, Exchange, Inspect, Probe};
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     // initializes and runs a timely dataflow.
@@ -12,7 +13,7 @@ fn main() {
         let mut probe = ProbeHandle::new();
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
             scope.input_from(&mut input)
                  .exchange(|x| *x)
                  .inspect(move |x| println!("worker {}:\thello {}", index, x))

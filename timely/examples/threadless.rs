@@ -2,6 +2,7 @@ extern crate timely;
 
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Inspect, Probe};
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
 
@@ -14,7 +15,7 @@ fn main() {
     let mut probe = ProbeHandle::new();
 
     // directly build a dataflow.
-    worker.dataflow(|scope| {
+    worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
         input
             .to_stream(scope)
             .inspect(|x| println!("{:?}", x))

@@ -6,7 +6,7 @@ use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Map, Operator, Inspect, Probe};
 use timely::dataflow::channels::pact::Exchange;
 use timely::dataflow::Scope;
-use timely::state::InMemoryBackend;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     // initializes and runs a timely dataflow.

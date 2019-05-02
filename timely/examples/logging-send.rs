@@ -6,6 +6,7 @@ use timely::dataflow::operators::{Input, Exchange, Probe};
 // use timely::dataflow::operators::capture::EventWriter;
 // use timely::dataflow::ScopeParent;
 use timely::logging::TimelyEvent;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     // initializes and runs a timely dataflow.
@@ -23,7 +24,7 @@ fn main() {
         );
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
             scope
                 .input_from(&mut input)
                 .exchange(|&x| x as u64)
@@ -36,7 +37,7 @@ fn main() {
         );
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
             scope
                 .input_from(&mut input)
                 .exchange(|&x| x as u64)

@@ -3,6 +3,7 @@ extern crate timely;
 use std::net::TcpListener;
 use timely::dataflow::operators::Inspect;
 use timely::dataflow::operators::capture::{EventReader, Replay};
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     timely::execute_from_args(std::env::args(), |worker| {
@@ -20,7 +21,7 @@ fn main() {
             .map(|r| EventReader::<_,u64,_>::new(r))
             .collect::<Vec<_>>();
 
-        worker.dataflow::<u64,_,_>(|scope| {
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope| {
             replayers
                 .replay_into(scope)
                 .inspect(|x| println!("replayed: {:?}", x));

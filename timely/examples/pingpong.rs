@@ -1,6 +1,7 @@
 extern crate timely;
 
 use timely::dataflow::operators::*;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
 
@@ -11,7 +12,7 @@ fn main() {
     timely::execute_from_args(std::env::args().skip(3), move |worker| {
         let index = worker.index();
         let peers = worker.peers();
-        worker.dataflow::<u64,_,_>(move |scope| {
+        worker.dataflow::<u64,_,_,InMemoryBackend>(move |scope| {
             let (helper, cycle) = scope.feedback(1);
             (0 .. elements)
                   .filter(move |&x| (x as usize) % peers == index)

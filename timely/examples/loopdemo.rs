@@ -2,6 +2,7 @@ extern crate timely;
 
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Input, Feedback, Concat, Map, Filter, ConnectLoop, Probe};
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
 
@@ -21,7 +22,7 @@ fn main() {
         let mut probe = ProbeHandle::new();
 
         // Create a dataflow that discards input data (just syncronizes).
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
 
             let stream = scope.input_from(&mut input);
 

@@ -6,6 +6,7 @@ use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Input, Inspect, Probe};
 use timely::dataflow::operators::generic::operator::Operator;
 use timely::dataflow::channels::pact::Exchange;
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     // initializes and runs a timely dataflow.
@@ -15,7 +16,7 @@ fn main() {
         let mut probe = ProbeHandle::new();
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow::<usize,_,_>(|scope| {
+        worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
             let mut counts_by_time = HashMap::new();
             scope.input_from(&mut input)
                 .unary(Exchange::new(|x| *x), "Distinct", move |_, _|

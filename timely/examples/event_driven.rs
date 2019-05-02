@@ -2,6 +2,7 @@ extern crate timely;
 
 // use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Input, Map, Probe};
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     // initializes and runs a timely dataflow.
@@ -21,7 +22,7 @@ fn main() {
 
         // create a new input, exchange data, and inspect its output
         for _dataflow in 0 .. dataflows {
-            worker.dataflow(|scope| {
+            worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
                 let (input, mut stream) = scope.new_input();
                 for _step in 0 .. length {
                     stream = stream.map(|x: ()| x);

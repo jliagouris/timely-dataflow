@@ -2,11 +2,12 @@ extern crate timely;
 
 use timely::dataflow::operators::flow_controlled::{iterator_source, IteratorSourceInput};
 use timely::dataflow::operators::{probe, Probe, Inspect};
+use timely::state::backends::InMemoryBackend;
 
 fn main() {
     timely::execute_from_args(std::env::args(), |worker| {
         let mut input = (0u64..100000).peekable();
-        worker.dataflow(|scope| {
+        worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
             let mut probe_handle = probe::Handle::new();
             let probe_handle_2 = probe_handle.clone();
 
