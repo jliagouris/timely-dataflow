@@ -131,8 +131,9 @@ impl<A: Allocate> Worker<A> {
     /// timely::execute_from_args(::std::env::args(), |worker| {
     ///
     ///     use timely::dataflow::operators::{ToStream, Inspect};
+    ///     use timely::state::backends::InMemoryBackend;
     ///
-    ///     worker.dataflow::<usize,_,_>(|scope| {
+    ///     worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
     ///         (0 .. 10)
     ///             .to_stream(scope)
     ///             .inspect(|x| println!("{:?}", x));
@@ -159,8 +160,9 @@ impl<A: Allocate> Worker<A> {
     ///
     ///     use std::time::Duration;
     ///     use timely::dataflow::operators::{ToStream, Inspect};
+    ///     use timely::state::backends::InMemoryBackend;
     ///
-    ///     worker.dataflow::<usize,_,_>(|scope| {
+    ///     worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
     ///         (0 .. 10)
     ///             .to_stream(scope)
     ///             .inspect(|x| println!("{:?}", x));
@@ -239,9 +241,10 @@ impl<A: Allocate> Worker<A> {
     /// timely::execute_from_args(::std::env::args(), |worker| {
     ///
     ///     use timely::dataflow::operators::{ToStream, Inspect, Probe};
+    ///     use timely::state::backends::InMemoryBackend;
     ///
     ///     let probe =
-    ///     worker.dataflow::<usize,_,_>(|scope| {
+    ///     worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
     ///         (0 .. 10)
     ///             .to_stream(scope)
     ///             .inspect(|x| println!("{:?}", x))
@@ -332,11 +335,12 @@ impl<A: Allocate> Worker<A> {
     ///
     /// # Examples
     /// ```
+    /// use timely::state::backends::InMemoryBackend;
     /// timely::execute_from_args(::std::env::args(), |worker| {
     ///
     ///     // We must supply the timestamp type here, although
     ///     // it would generally be determined by type inference.
-    ///     worker.dataflow::<usize,_,_>(|scope| {
+    ///     worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
     ///
     ///         // uses of `scope` to build dataflow
     ///
@@ -362,11 +366,12 @@ impl<A: Allocate> Worker<A> {
     ///
     /// # Examples
     /// ```
+    /// use timely::state::backends::InMemoryBackend;
     /// timely::execute_from_args(::std::env::args(), |worker| {
     ///
     ///     // We must supply the timestamp type here, although
     ///     // it would generally be determined by type inference.
-    ///     worker.dataflow_core::<usize,_,_,_>(
+    ///     worker.dataflow_core::<usize,_,_,_,InMemoryBackend>(
     ///         "dataflow X",           // Dataflow name
     ///         None,                   // Optional logger
     ///         37,                     // Any resources

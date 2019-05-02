@@ -17,6 +17,7 @@ pub trait Extract<T: Ord, D: Ord> {
     /// use timely::dataflow::Scope;
     /// use timely::dataflow::operators::{Capture, ToStream, Inspect};
     /// use timely::dataflow::operators::capture::{EventLink, Replay, Extract};
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // get send and recv endpoints, wrap send to share
     /// let (send, recv) = ::std::sync::mpsc::channel();
@@ -31,12 +32,12 @@ pub trait Extract<T: Ord, D: Ord> {
     ///     let handle1 = Rc::new(EventLink::new());
     ///     let handle2 = Some(handle1.clone());
     ///
-    ///     worker.dataflow::<u64,_,_>(|scope1|
+    ///     worker.dataflow::<u64,_,_,InMemoryBackend>(|scope1|
     ///         (0..10).to_stream(scope1)
     ///                .capture_into(handle1)
     ///     );
     ///
-    ///     worker.dataflow(|scope2| {
+    ///     worker.dataflow::<_,_,_,InMemoryBackend>(|scope2| {
     ///         handle2.replay_into(scope2)
     ///                .capture_into(send)
     ///     });

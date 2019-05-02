@@ -68,10 +68,11 @@ where
 /// # Examples
 /// ```rust
 /// use timely::dataflow::operators::{ToStream, Inspect};
+/// use timely::state::backends::InMemoryBackend;
 ///
 /// // execute a timely dataflow using three worker threads.
 /// timely::execute_directly(|worker| {
-///     worker.dataflow::<(),_,_>(|scope| {
+///     worker.dataflow::<(),_,_,InMemoryBackend>(|scope| {
 ///         (0..10).to_stream(scope)
 ///                .inspect(|x| println!("seen: {:?}", x));
 ///     })
@@ -102,10 +103,11 @@ where
 /// # Examples
 /// ```rust
 /// use timely::dataflow::operators::{ToStream, Inspect};
+/// use timely::state::backends::InMemoryBackend;
 ///
 /// // execute a timely dataflow using three worker threads.
 /// timely::execute(timely::Configuration::Process(3), |worker| {
-///     worker.dataflow::<(),_,_>(|scope| {
+///     worker.dataflow::<(),_,_,InMemoryBackend>(|scope| {
 ///         (0..10).to_stream(scope)
 ///                .inspect(|x| println!("seen: {:?}", x));
 ///     })
@@ -120,6 +122,7 @@ where
 /// use std::sync::{Arc, Mutex};
 /// use timely::dataflow::operators::{ToStream, Inspect, Capture};
 /// use timely::dataflow::operators::capture::Extract;
+/// use timely::state::backends::InMemoryBackend;
 ///
 /// // get send and recv endpoints, wrap send to share
 /// let (send, recv) = ::std::sync::mpsc::channel();
@@ -128,7 +131,7 @@ where
 /// // execute a timely dataflow using three worker threads.
 /// timely::execute(timely::Configuration::Process(3), move |worker| {
 ///     let send = send.lock().unwrap().clone();
-///     worker.dataflow::<(),_,_>(move |scope| {
+///     worker.dataflow::<(),_,_,InMemoryBackend>(move |scope| {
 ///         (0..10).to_stream(scope)
 ///                .inspect(|x| println!("seen: {:?}", x))
 ///                .capture_into(send);
@@ -231,10 +234,11 @@ where
 ///
 /// ```rust
 /// use timely::dataflow::operators::{ToStream, Inspect};
+/// use timely::state::backends::InMemoryBackend;
 ///
 /// // execute a timely dataflow using command line parameters
 /// timely::execute_from_args(std::env::args(), |worker| {
-///     worker.dataflow::<(),_,_>(|scope| {
+///     worker.dataflow::<(),_,_,InMemoryBackend>(|scope| {
 ///         (0..10).to_stream(scope)
 ///                .inspect(|x| println!("seen: {:?}", x));
 ///     })
@@ -267,11 +271,12 @@ pub fn execute_from_args<I, T, F>(iter: I, func: F) -> Result<WorkerGuards<T>,St
 ///
 /// ```rust
 /// use timely::dataflow::operators::{ToStream, Inspect};
+/// use timely::state::backends::InMemoryBackend;
 ///
 /// // execute a timely dataflow using command line parameters
 /// let (builders, other) = timely::Configuration::Process(3).try_build().unwrap();
 /// timely::execute::execute_from(builders, other, |worker| {
-///     worker.dataflow::<(),_,_>(|scope| {
+///     worker.dataflow::<(),_,_,InMemoryBackend>(|scope| {
 ///         (0..10).to_stream(scope)
 ///                .inspect(|x| println!("seen: {:?}", x));
 ///     })

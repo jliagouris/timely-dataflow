@@ -38,12 +38,13 @@ pub trait Input : Scope {
     /// ```
     /// use timely::*;
     /// use timely::dataflow::operators::{Input, Inspect};
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // construct and execute a timely dataflow
     /// timely::execute(Configuration::Thread, |worker| {
     ///
     ///     // add an input and base computation off of it
-    ///     let mut input = worker.dataflow(|scope| {
+    ///     let mut input = worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
     ///         let (input, stream) = scope.new_input();
     ///         stream.inspect(|x| println!("hello {:?}", x));
     ///         input
@@ -70,13 +71,14 @@ pub trait Input : Scope {
     /// use timely::*;
     /// use timely::dataflow::operators::{Input, Inspect};
     /// use timely::dataflow::operators::input::Handle;
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // construct and execute a timely dataflow
     /// timely::execute(Configuration::Thread, |worker| {
     ///
     ///     // add an input and base computation off of it
     ///     let mut input = Handle::new();
-    ///     worker.dataflow(|scope| {
+    ///     worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
     ///         scope.input_from(&mut input)
     ///              .inspect(|x| println!("hello {:?}", x));
     ///     });
@@ -187,13 +189,14 @@ impl<T:Timestamp, D: Data> Handle<T, D> {
     /// use timely::*;
     /// use timely::dataflow::operators::{Input, Inspect};
     /// use timely::dataflow::operators::input::Handle;
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // construct and execute a timely dataflow
     /// timely::execute(Configuration::Thread, |worker| {
     ///
     ///     // add an input and base computation off of it
     ///     let mut input = Handle::new();
-    ///     worker.dataflow(|scope| {
+    ///     worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
     ///         scope.input_from(&mut input)
     ///              .inspect(|x| println!("hello {:?}", x));
     ///     });
@@ -224,13 +227,14 @@ impl<T:Timestamp, D: Data> Handle<T, D> {
     /// use timely::*;
     /// use timely::dataflow::operators::{Input, Inspect};
     /// use timely::dataflow::operators::input::Handle;
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // construct and execute a timely dataflow
     /// timely::execute(Configuration::Thread, |worker| {
     ///
     ///     // add an input and base computation off of it
     ///     let mut input = Handle::new();
-    ///     worker.dataflow(|scope| {
+    ///     worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
     ///         input.to_stream(scope)
     ///              .inspect(|x| println!("hello {:?}", x));
     ///     });

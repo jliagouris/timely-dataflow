@@ -24,12 +24,13 @@ pub trait Probe<G: Scope, D: Data> {
     /// use timely::*;
     /// use timely::dataflow::Scope;
     /// use timely::dataflow::operators::{Input, Probe, Inspect};
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // construct and execute a timely dataflow
     /// timely::execute(Configuration::Thread, |worker| {
     ///
     ///     // add an input and base computation off of it
-    ///     let (mut input, probe) = worker.dataflow(|scope| {
+    ///     let (mut input, probe) = worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
     ///         let (input, stream) = scope.new_input();
     ///         let probe = stream.inspect(|x| println!("hello {:?}", x))
     ///                           .probe();
@@ -54,13 +55,14 @@ pub trait Probe<G: Scope, D: Data> {
     /// use timely::dataflow::Scope;
     /// use timely::dataflow::operators::{Input, Probe, Inspect};
     /// use timely::dataflow::operators::probe::Handle;
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // construct and execute a timely dataflow
     /// timely::execute(Configuration::Thread, |worker| {
     ///
     ///     // add an input and base computation off of it
     ///     let mut probe = Handle::new();
-    ///     let mut input = worker.dataflow(|scope| {
+    ///     let mut input = worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
     ///         let (input, stream) = scope.new_input();
     ///         stream.probe_with(&mut probe)
     ///               .inspect(|x| println!("hello {:?}", x));

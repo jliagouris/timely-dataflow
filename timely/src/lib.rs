@@ -25,12 +25,13 @@
 //! ```
 //! use timely::*;
 //! use timely::dataflow::operators::{Input, Inspect};
+//! use timely::state::backends::InMemoryBackend;
 //!
 //! // construct and execute a timely dataflow
 //! timely::execute_from_args(std::env::args(), |worker| {
 //!
 //!     // add an input and base computation off of it
-//!     let mut input = worker.dataflow(|scope| {
+//!     let mut input = worker.dataflow::<_,_,_,InMemoryBackend>(|scope| {
 //!         let (input, stream) = scope.new_input();
 //!         stream.inspect(|x| println!("hello {:?}", x));
 //!         input

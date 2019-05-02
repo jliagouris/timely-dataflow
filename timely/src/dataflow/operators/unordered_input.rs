@@ -45,6 +45,7 @@ pub trait UnorderedInput<G: Scope> {
     /// use timely::dataflow::operators::*;
     /// use timely::dataflow::operators::capture::Extract;
     /// use timely::dataflow::Stream;
+    /// use timely::state::backends::InMemoryBackend;
     ///
     /// // get send and recv endpoints, wrap send to share
     /// let (send, recv) = ::std::sync::mpsc::channel();
@@ -56,7 +57,7 @@ pub trait UnorderedInput<G: Scope> {
     ///     let send = send.lock().unwrap().clone();
     ///
     ///     // create and capture the unordered input.
-    ///     let (mut input, mut cap) = worker.dataflow::<usize,_,_>(|scope| {
+    ///     let (mut input, mut cap) = worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
     ///         let (input, stream) = scope.new_unordered_input();
     ///         stream.capture_into(send);
     ///         input

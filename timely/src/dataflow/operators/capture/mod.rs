@@ -23,17 +23,18 @@
 //! use timely::dataflow::Scope;
 //! use timely::dataflow::operators::{Capture, ToStream, Inspect};
 //! use timely::dataflow::operators::capture::{EventLink, Replay};
+//! use timely::state::backends::InMemoryBackend;
 //!
 //! timely::execute(timely::Configuration::Thread, |worker| {
 //!     let handle1 = Rc::new(EventLink::new());
 //!     let handle2 = Some(handle1.clone());
 //!
-//!     worker.dataflow::<u64,_,_>(|scope1|
+//!     worker.dataflow::<u64,_,_,InMemoryBackend>(|scope1|
 //!         (0..10).to_stream(scope1)
 //!                .capture_into(handle1)
 //!     );
 //!
-//!     worker.dataflow(|scope2| {
+//!     worker.dataflow::<_,_,_,InMemoryBackend>(|scope2| {
 //!         handle2.replay_into(scope2)
 //!                .inspect(|x| println!("replayed: {:?}", x));
 //!     })
@@ -51,6 +52,7 @@
 //! use timely::dataflow::Scope;
 //! use timely::dataflow::operators::{Capture, ToStream, Inspect};
 //! use timely::dataflow::operators::capture::{EventReader, EventWriter, Replay};
+//! use timely::state::backends::InMemoryBackend;
 //!
 //! timely::execute(timely::Configuration::Thread, |worker| {
 //!     let list = TcpListener::bind("127.0.0.1:8000").unwrap();
@@ -59,13 +61,13 @@
 //!
 //!     recv.set_nonblocking(true).unwrap();
 //!
-//!     worker.dataflow::<u64,_,_>(|scope1|
+//!     worker.dataflow::<u64,_,_,InMemoryBackend>(|scope1|
 //!         (0..10u64)
 //!             .to_stream(scope1)
 //!             .capture_into(EventWriter::new(send))
 //!     );
 //!
-//!     worker.dataflow::<u64,_,_>(|scope2| {
+//!     worker.dataflow::<u64,_,_,InMemoryBackend>(|scope2| {
 //!         Some(EventReader::<_,u64,_>::new(recv))
 //!             .replay_into(scope2)
 //!             .inspect(|x| println!("replayed: {:?}", x));

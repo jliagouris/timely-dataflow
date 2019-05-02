@@ -188,9 +188,10 @@ fn notificator_delivers_notifications_in_topo_order() {
 /// use timely::dataflow::operators::{Input, Inspect, FrontierNotificator};
 /// use timely::dataflow::operators::generic::operator::Operator;
 /// use timely::dataflow::channels::pact::Pipeline;
+/// use timely::state::backends::InMemoryBackend;
 ///
 /// timely::execute(timely::Configuration::Thread, |worker| {
-///     let (mut in1, mut in2) = worker.dataflow::<usize,_,_>(|scope| {
+///     let (mut in1, mut in2) = worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
 ///         let (in1_handle, in1) = scope.new_input();
 ///         let (in2_handle, in2) = scope.new_input();
 ///         in1.binary_frontier(&in2, Pipeline, Pipeline, "example", |mut _default_cap, _info| {
