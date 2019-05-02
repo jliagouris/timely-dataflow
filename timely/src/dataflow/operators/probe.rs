@@ -182,6 +182,7 @@ mod tests {
 
     use crate::communication::Configuration;
     use crate::dataflow::operators::{Input, Probe};
+    use crate::state::backends::InMemoryBackend;
 
     #[test]
     fn probe() {
@@ -190,7 +191,7 @@ mod tests {
         crate::execute(Configuration::Thread, |worker| {
 
             // create a new input, and inspect its output
-            let (mut input, probe) = worker.dataflow(move |scope| {
+            let (mut input, probe) = worker.dataflow::<_,_,_,InMemoryBackend>(move |scope| {
                 let (input, stream) = scope.new_input::<String>();
                 (input, stream.probe())
             });
