@@ -1,5 +1,5 @@
 use timely::dataflow::operators::Inspect;
-use timely::state::InMemoryBackend;
+use timely::state::backends::InMemoryBackend;
 
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{Consumer, BaseConsumer, DefaultConsumerContext};

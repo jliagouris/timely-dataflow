@@ -3,7 +3,7 @@
 use crate::communication::Allocate;
 use crate::dataflow::{InputHandle, ProbeHandle};
 use crate::worker::Worker;
-use crate::state::InMemoryBackend;
+use crate::state::backends::InMemoryBackend;
 
 /// A re-usable barrier synchronization mechanism.
 pub struct Barrier<A: Allocate> {

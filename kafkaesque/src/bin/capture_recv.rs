@@ -1,7 +1,7 @@
 use timely::dataflow::operators::Inspect;
 use timely::dataflow::operators::capture::Replay;
 use timely::dataflow::operators::Accumulate;
-use timely::state::InMemoryBackend;
+use timely::state::backends::InMemoryBackend;
 
 use rdkafka::config::ClientConfig;
 

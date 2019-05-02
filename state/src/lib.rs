@@ -1,8 +1,7 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
-mod backends;
-pub use crate::backends::InMemoryBackend;
-use std::cell::RefCell;
+pub mod backends;
 
 pub trait StateBackend {
     fn new() -> Self;

@@ -1,6 +1,6 @@
 use timely::dataflow::operators::ToStream;
 use timely::dataflow::operators::capture::Capture;
-use timely::state::InMemoryBackend;
+use timely::state::backends::InMemoryBackend;
 
 use rdkafka::config::ClientConfig;
 

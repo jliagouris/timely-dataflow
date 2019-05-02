@@ -1,3 +1,3 @@
-pub use self::in_memory::InMemoryBackend;
+pub use in_memory::InMemoryBackend;
 
-pub mod in_memory;
+mod in_memory;
