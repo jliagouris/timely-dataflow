@@ -143,9 +143,7 @@ where
     }
 
     fn get_state_handle(&self) -> StateHandle<S> {
-        StateHandle {
-            backend: self.state_backend.clone()
-        }
+        StateHandle::new(self.state_backend.clone(), self.name())
     }
 }
 

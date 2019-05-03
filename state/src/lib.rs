@@ -10,7 +10,8 @@ pub trait StateBackend {
 }
 
 pub struct StateHandle<T: StateBackend> {
-    pub backend: Rc<RefCell<T>>,
+    backend: Rc<RefCell<T>>,
+    scope_name: String,
 }
 
 pub struct ManagedCount<T: StateBackend> {
@@ -20,6 +21,13 @@ pub struct ManagedCount<T: StateBackend> {
 }
 
 impl<T: StateBackend> StateHandle<T> {
+    pub fn new(backend: Rc<RefCell<T>>, scope_name: String) -> Self {
+        StateHandle {
+            backend,
+            scope_name,
+        }
+    }
+
     pub fn get_managed_count(&self, name: &str) -> ManagedCount<T> {
         ManagedCount {
             backend: self.backend.clone(),
