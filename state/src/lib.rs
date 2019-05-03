@@ -19,7 +19,7 @@ pub struct ManagedCount<T: StateBackend> {
     count: u64,
 }
 
-impl<T: 'static + StateBackend> StateHandle<T> {
+impl<T: StateBackend> StateHandle<T> {
     pub fn get_managed_count(&self, name: &str) -> ManagedCount<T> {
         ManagedCount {
             backend: self.backend.clone(),
@@ -29,7 +29,7 @@ impl<T: 'static + StateBackend> StateHandle<T> {
     }
 }
 
-impl<T: 'static + StateBackend> ManagedCount<T> {
+impl<T: StateBackend> ManagedCount<T> {
     pub fn incr(&mut self, amount: u64) {
         self.count += amount;
         self.backend
