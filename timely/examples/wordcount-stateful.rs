@@ -41,7 +41,7 @@ fn main() {
                                 for mut batch in val.drain(..) {
                                     for (word, diff) in batch.drain(..) {
                                         let mut count = state_handle.get_managed_count(&word.clone());
-                                        count.incr(diff);
+                                        count.increase(diff);
                                         session.give((word, count.get()));
                                     }
                                 }
