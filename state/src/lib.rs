@@ -29,15 +29,21 @@ impl<T: StateBackend> StateHandle<T> {
     }
 
     pub fn get_managed_count(&self, name: &str) -> ManagedCount<T> {
-        ManagedCount {
-            backend: self.backend.clone(),
-            name: name.to_owned(),
-            count: self.backend.borrow().get_count(name),
-        }
+        let mut physical_name = self.name.clone();
+        physical_name.push_str(name);
+        ManagedCount::new(self.backend.clone(), &physical_name)
     }
 }
 
 impl<T: StateBackend> ManagedCount<T> {
+    pub fn new(backend: Rc<RefCell<T>>, name: &str) -> Self {
+        let current_count = backend.borrow().get_count(name);
+        ManagedCount {
+            backend,
+            name: name.to_owned(),
+            count: current_count,
+        }
+    }
     pub fn incr(&mut self, amount: u64) {
         self.count += amount;
         self.backend
