@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Map, Operator, Inspect, Probe};
 use timely::dataflow::channels::pact::Exchange;
-use timely::dataflow::Scope;
 use timely::state::backends::InMemoryBackend;
 
 fn main() {
@@ -20,15 +19,13 @@ fn main() {
 
         // create a new input, exchange data, and inspect its output
         worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
-            let state_handle = scope.get_state_handle();
             input.to_stream(scope)
                  .flat_map(|(text, diff): (String, u64)|
                     text.split_whitespace()
                         .map(move |word| (word.to_owned(), diff))
                         .collect::<Vec<_>>()
                  )
-                 .unary_frontier(exchange, "WordCount", |_capability, _info| {
-
+                 .unary_frontier(exchange, "WordCount", |_capability, _info, state_handle| {
                     let mut queues = HashMap::new();
 
                     move |input, output| {
