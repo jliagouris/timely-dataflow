@@ -51,7 +51,7 @@ pub trait Map<S: Scope, D: Data> {
 impl<S: Scope, D: Data> Map<S, D> for Stream<S, D> {
     fn map<D2: Data>(&self, logic: impl Fn(D)->D2+'static) -> Stream<S, D2> {
         let mut vector = Vec::new();
-        self.unary(Pipeline, "Map", move |_,_| move |input, output| {
+        self.unary(Pipeline, "Map", move |_,_,_| move |input, output| {
             input.for_each(|time, data| {
                 data.swap(&mut vector);
                 output.session(&time).give_iterator(vector.drain(..).map(|x| logic(x)));
@@ -60,7 +60,7 @@ impl<S: Scope, D: Data> Map<S, D> for Stream<S, D> {
     }
     fn map_in_place(&self, logic: impl Fn(&mut D)+'static) -> Stream<S, D> {
         let mut vector = Vec::new();
-        self.unary(Pipeline, "MapInPlace", move |_,_| move |input, output| {
+        self.unary(Pipeline, "MapInPlace", move |_,_,_| move |input, output| {
             input.for_each(|time, data| {
                 data.swap(&mut vector);
                 for datum in vector.iter_mut() { logic(datum); }
@@ -73,7 +73,7 @@ impl<S: Scope, D: Data> Map<S, D> for Stream<S, D> {
     // TODO : records without taking arbitrarily long and arbitrarily much memory.
     fn flat_map<I: IntoIterator>(&self, logic: impl Fn(D)->I+'static) -> Stream<S, I::Item> where I::Item: Data {
         let mut vector = Vec::new();
-        self.unary(Pipeline, "FlatMap", move |_,_| move |input, output| {
+        self.unary(Pipeline, "FlatMap", move |_,_,_| move |input, output| {
             input.for_each(|time, data| {
                 data.swap(&mut vector);
                 output.session(&time).give_iterator(vector.drain(..).flat_map(|x| logic(x).into_iter()));

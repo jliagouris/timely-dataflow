@@ -53,7 +53,7 @@ impl<S: Scope, D: Data> Reclock<S, D> for Stream<S, D> {
 
         let mut stash = vec![];
 
-        self.binary_notify(clock, Pipeline, Pipeline, "Reclock", vec![], move |input1, input2, output, notificator| {
+        self.binary_notify(clock, Pipeline, Pipeline, "Reclock", vec![], move |input1, input2, output, notificator, _state_handle| {
 
             // stash each data input with its timestamp.
             input1.for_each(|cap, data| {

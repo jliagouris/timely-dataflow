@@ -68,7 +68,7 @@ impl<S: Scope, K: ExchangeData+Hash+Eq, V: ExchangeData> StateMachine<S, K, V> f
 
         let mut vector = Vec::new();
 
-        self.unary_notify(Exchange::new(move |&(ref k, _)| hash(k)), "StateMachine", vec![], move |input, output, notificator| {
+        self.unary_notify(Exchange::new(move |&(ref k, _)| hash(k)), "StateMachine", vec![], move |input, output, notificator, _state_machine| {
 
             // go through each time with data, process each (key, val) pair.
             notificator.for_each(|time,_,_| {

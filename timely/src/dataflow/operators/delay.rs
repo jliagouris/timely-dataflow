@@ -98,7 +98,7 @@ impl<G: Scope, D: Data> Delay<G, D> for Stream<G, D> {
     fn delay(&self, func: impl Fn(&D, &G::Timestamp)->G::Timestamp+'static) -> Stream<G, D> {
         let mut elements = HashMap::new();
         let mut vector = Vec::new();
-        self.unary_notify(Pipeline, "Delay", vec![], move |input, output, notificator| {
+        self.unary_notify(Pipeline, "Delay", vec![], move |input, output, notificator, _state_handle| {
             input.for_each(|time, data| {
                 data.swap(&mut vector);
                 for datum in vector.drain(..) {
@@ -128,7 +128,7 @@ impl<G: Scope, D: Data> Delay<G, D> for Stream<G, D> {
 
     fn delay_batch(&self, func: impl Fn(&G::Timestamp)->G::Timestamp+'static) -> Stream<G, D> {
         let mut elements = HashMap::new();
-        self.unary_notify(Pipeline, "Delay", vec![], move |input, output, notificator| {
+        self.unary_notify(Pipeline, "Delay", vec![], move |input, output, notificator, _state_handle| {
             input.for_each(|time, data| {
                 let new_time = func(&time);
                 assert!(time.time().less_equal(&new_time));

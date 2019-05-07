@@ -25,7 +25,7 @@ pub trait Filter<D: Data> {
 impl<G: Scope, D: Data> Filter<D> for Stream<G, D> {
     fn filter(&self, predicate: impl Fn(&D)->bool+'static) -> Stream<G, D> {
         let mut vector = Vec::new();
-        self.unary(Pipeline, "Filter", move |_,_| move |input, output| {
+        self.unary(Pipeline, "Filter", move |_,_,_| move |input, output| {
             input.for_each(|time, data| {
                 data.swap(&mut vector);
                 vector.retain(|x| predicate(x));

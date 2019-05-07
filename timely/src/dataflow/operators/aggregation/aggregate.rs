@@ -77,7 +77,7 @@ impl<S: Scope, K: ExchangeData+Hash+Eq, V: ExchangeData> Aggregate<S, K, V> for 
 
         let mut aggregates = HashMap::new();
         let mut vector = Vec::new();
-        self.unary_notify(Exchange::new(move |&(ref k, _)| hash(k)), "Aggregate", vec![], move |input, output, notificator| {
+        self.unary_notify(Exchange::new(move |&(ref k, _)| hash(k)), "Aggregate", vec![], move |input, output, notificator, _state_handle| {
 
             // read each input, fold into aggregates
             input.for_each(|time, data| {
