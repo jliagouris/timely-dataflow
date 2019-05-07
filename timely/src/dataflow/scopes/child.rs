@@ -13,7 +13,8 @@ use crate::progress::timestamp::Refines;
 use crate::order::Product;
 use crate::logging::TimelyLogger as Logger;
 use crate::worker::AsWorker;
-use crate::timely_state::{StateBackend, StateHandle};
+use crate::state::{StateBackend, StateHandle};
+use crate::dataflow::operators::generic::OperatorInfo;
 
 use super::{ScopeParent, Scope};
 
@@ -143,7 +144,13 @@ where
     }
 
     fn get_state_handle(&self) -> StateHandle<S> {
-        StateHandle::new(self.state_backend.clone(), self.name())
+        let name = [&self.index().to_string(), "."].join("");
+        StateHandle::new(self.state_backend.clone(), &name)
+    }
+
+    fn get_operator_state_handle(&self, info: &OperatorInfo) -> StateHandle<Self::StateBackend> {
+        let name = [&self.index().to_string(), ".", &info.global_id.to_string(), ".", &info.local_id.to_string(), "."].join("");
+        StateHandle::new(self.state_backend.clone(), &name)
     }
 }
 

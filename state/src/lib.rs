@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 pub mod backends;
 
-pub trait StateBackend {
+pub trait StateBackend: 'static {
     fn new() -> Self;
     fn store_count(&mut self, name: &str, count: u64);
     fn get_count(&self, name: &str) -> u64;
@@ -11,7 +11,7 @@ pub trait StateBackend {
 
 pub struct StateHandle<T: StateBackend> {
     backend: Rc<RefCell<T>>,
-    scope_name: String,
+    name: String,
 }
 
 pub struct ManagedCount<T: StateBackend> {
@@ -21,10 +21,10 @@ pub struct ManagedCount<T: StateBackend> {
 }
 
 impl<T: StateBackend> StateHandle<T> {
-    pub fn new(backend: Rc<RefCell<T>>, scope_name: String) -> Self {
+    pub fn new(backend: Rc<RefCell<T>>, name: &str) -> Self {
         StateHandle {
             backend,
-            scope_name,
+            name: name.to_owned(),
         }
     }
 

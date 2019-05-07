@@ -10,6 +10,7 @@ use crate::state::{StateBackend, StateHandle};
 pub mod child;
 
 pub use self::child::Child;
+use crate::dataflow::operators::generic::OperatorInfo;
 
 /// The information a child scope needs from its parent.
 pub trait ScopeParent: AsWorker+Clone {
@@ -103,6 +104,9 @@ pub trait Scope: ScopeParent {
 
     /// A handle for accessing managed state
     fn get_state_handle(&self) -> StateHandle<Self::StateBackend>;
+
+    /// A handle for accessing managed operator state
+    fn get_operator_state_handle(&self, info: &OperatorInfo) -> StateHandle<Self::StateBackend>;
 
     /// Creates a iterative dataflow subgraph.
     ///
