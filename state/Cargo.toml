@@ -5,3 +5,4 @@ authors = ["Matthew Brookes <mbrookes1304@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+faster-rs = { git = "https://github.com/faster-rs/faster-rs.git", branch = "master"}
