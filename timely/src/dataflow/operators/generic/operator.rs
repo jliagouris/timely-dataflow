@@ -14,7 +14,9 @@ use crate::dataflow::{Stream, Scope};
 use super::builder_rc::OperatorBuilder;
 use crate::dataflow::operators::generic::OperatorInfo;
 use crate::dataflow::operators::generic::notificator::{Notificator, FrontierNotificator};
-use crate::state::StateHandle;
+use crate::state::{StateBackend, StateHandle};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 /// Methods to construct generic streaming and blocking operators.
 pub trait Operator<G: Scope, D1: Data> {
@@ -32,7 +34,7 @@ pub trait Operator<G: Scope, D1: Data> {
     /// fn main() {
     ///     timely::example(|scope| {
     ///         (0u64..10).to_stream(scope)
-    ///             .unary_frontier(Pipeline, "example", |default_cap, _info| {
+    ///             .unary_frontier(Pipeline, "example", |default_cap, _info, _state_handle| {
     ///                 let mut cap = Some(default_cap.delayed(&12));
     ///                 let mut notificator = FrontierNotificator::new();
     ///                 let mut stash = HashMap::new();
@@ -62,8 +64,59 @@ pub trait Operator<G: Scope, D1: Data> {
         D2: Data,
         B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<G::StateBackend>) -> L,
         L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P::Puller>,
-                 &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
+            &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
         P: ParallelizationContract<G::Timestamp, D1>;
+
+    /// Creates a new dataflow operator that partitions its input stream by a parallelization
+    /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
+    /// `logic` can read from the input stream, write to the output stream, and inspect the frontier at the input.
+    ///
+    /// This variant allows specifying the state backend that will be used by `state_handle`.
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use timely::dataflow::operators::{ToStream, FrontierNotificator};
+    /// use timely::dataflow::operators::generic::Operator;
+    /// use timely::dataflow::channels::pact::Pipeline;
+    /// use timely::state::StateHandle;
+    /// use timely::state::backends::InMemoryBackend;
+    ///
+    /// fn main() {
+    ///     timely::example(|scope| {
+    ///         (0u64..10).to_stream(scope)
+    ///             .unary_frontier_core(Pipeline, "example", |default_cap, _info, _state_handle: StateHandle<InMemoryBackend>| {
+    ///                 let mut cap = Some(default_cap.delayed(&12));
+    ///                 let mut notificator = FrontierNotificator::new();
+    ///                 let mut stash = HashMap::new();
+    ///                 let mut vector = Vec::new();
+    ///                 move |input, output| {
+    ///                     if let Some(ref c) = cap.take() {
+    ///                         output.session(&c).give(12);
+    ///                     }
+    ///                     while let Some((time, data)) = input.next() {
+    ///                         data.swap(&mut vector);
+    ///                         stash.entry(time.time().clone())
+    ///                              .or_insert(Vec::new())
+    ///                              .extend(vector.drain(..));
+    ///                     }
+    ///                     notificator.for_each(&[input.frontier()], |time, _not| {
+    ///                         if let Some(mut vec) = stash.remove(time.time()) {
+    ///                             output.session(&time).give_iterator(vec.drain(..));
+    ///                         }
+    ///                     });
+    ///                 }
+    ///             });
+    ///     });
+    /// }
+    /// ```
+    fn unary_frontier_core<D2, B, L, P, S>(&self, pact: P, name: &str, constructor: B) -> Stream<G, D2>
+    where
+        D2: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P::Puller>,
+                 &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
+        P: ParallelizationContract<G::Timestamp, D1>,
+        S: StateBackend;
 
     /// Creates a new dataflow operator that partitions its input stream by a parallelization
     /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
@@ -81,7 +134,7 @@ pub trait Operator<G: Scope, D1: Data> {
     ///         let mut vector = Vec::new();
     ///         (0u64..10)
     ///             .to_stream(scope)
-    ///             .unary_notify(Pipeline, "example", None, move |input, output, notificator| {
+    ///             .unary_notify(Pipeline, "example", None, move |input, output, notificator, _state_handle| {
     ///                 input.for_each(|time, data| {
     ///                     data.swap(&mut vector);
     ///                     output.session(&time).give_vec(&mut vector);
@@ -99,8 +152,49 @@ pub trait Operator<G: Scope, D1: Data> {
                      &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>,
                      &mut Notificator<G::Timestamp>,
                      &StateHandle<G::StateBackend>)+'static,
-             P: ParallelizationContract<G::Timestamp, D1>>
+            P: ParallelizationContract<G::Timestamp, D1>>
              (&self, pact: P, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D2>;
+
+    /// Creates a new dataflow operator that partitions its input stream by a parallelization
+    /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
+    /// `logic` can read from the input stream, write to the output stream, and inspect the frontier at the input.
+    ///
+    /// This variant allows specifying the state backend that will be used by `state_handle`.
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use timely::dataflow::operators::{ToStream, FrontierNotificator, Notificator};
+    /// use timely::dataflow::operators::generic::{Operator, InputHandle, OutputHandle};
+    /// use timely::dataflow::channels::pact::Pipeline;
+    /// use timely::state::StateHandle;
+    /// use timely::state::backends::InMemoryBackend;
+    ///
+    /// fn main() {
+    ///     timely::example(|scope| {
+    ///         let mut vector = Vec::new();
+    ///         (0u64..10)
+    ///             .to_stream(scope)
+    ///             .unary_notify_core(Pipeline, "example", None, move |input, output, notificator, _state_handle: &StateHandle<InMemoryBackend>| {
+    ///                 input.for_each(|time, data| {
+    ///                     data.swap(&mut vector);
+    ///                     output.session(&time).give_vec(&mut vector);
+    ///                     notificator.notify_at(time.retain());
+    ///                 });
+    ///                 notificator.for_each(|time, _cnt, _not| {
+    ///                     println!("notified at {:?}", time);
+    ///                 });
+    ///             });
+    ///     });
+    /// }
+    /// ```
+    fn unary_notify_core<D2: Data,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P::Puller>,
+            &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>,
+            &mut Notificator<G::Timestamp>,
+            &StateHandle<S>)+'static,
+        P: ParallelizationContract<G::Timestamp, D1>,
+        S: StateBackend>
+    (&self, pact: P, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D2>;
 
     /// Creates a new dataflow operator that partitions its input stream by a parallelization
     /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
@@ -115,7 +209,7 @@ pub trait Operator<G: Scope, D1: Data> {
     ///
     /// timely::example(|scope| {
     ///     (0u64..10).to_stream(scope)
-    ///         .unary(Pipeline, "example", |default_cap, _info| {
+    ///         .unary(Pipeline, "example", |default_cap, _info, _state_handle| {
     ///             let mut cap = Some(default_cap.delayed(&12));
     ///             let mut vector = Vec::new();
     ///             move |input, output| {
@@ -138,6 +232,46 @@ pub trait Operator<G: Scope, D1: Data> {
                  &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
         P: ParallelizationContract<G::Timestamp, D1>;
 
+    /// Creates a new dataflow operator that partitions its input stream by a parallelization
+    /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
+    /// `logic` can read from the input stream, and write to the output stream.
+    ///
+    /// This variant allows specifying the state backend that will be used by `state_handle`.
+    /// # Examples
+    /// ```
+    /// use timely::dataflow::operators::{ToStream, FrontierNotificator};
+    /// use timely::dataflow::operators::generic::operator::Operator;
+    /// use timely::dataflow::channels::pact::Pipeline;
+    /// use timely::dataflow::Scope;
+    /// use timely::state::StateHandle;
+    /// use timely::state::backends::InMemoryBackend;
+    ///
+    /// timely::example(|scope| {
+    ///     (0u64..10).to_stream(scope)
+    ///         .unary(Pipeline, "example", |default_cap, _info, _state_handle: StateHandle<InMemoryBackend>| {
+    ///             let mut cap = Some(default_cap.delayed(&12));
+    ///             let mut vector = Vec::new();
+    ///             move |input, output| {
+    ///                 if let Some(ref c) = cap.take() {
+    ///                     output.session(&c).give(100);
+    ///                 }
+    ///                 while let Some((time, data)) = input.next() {
+    ///                     data.swap(&mut vector);
+    ///                     output.session(&time).give_vec(&mut vector);
+    ///                 }
+    ///             }
+    ///         });
+    /// });
+    /// ```
+    fn unary_core<D2, B, L, P, S>(&self, pact: P, name: &str, constructor: B) -> Stream<G, D2>
+    where
+        D2: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P::Puller>,
+            &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
+        P: ParallelizationContract<G::Timestamp, D1>,
+        S: StateBackend;
+
     /// Creates a new dataflow operator that partitions its input streams by a parallelization
     /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
     /// `logic` can read from the input streams, write to the output stream, and inspect the frontier at the inputs.
@@ -154,7 +288,7 @@ pub trait Operator<G: Scope, D1: Data> {
     ///    let (mut in1, mut in2) = worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
     ///        let (in1_handle, in1) = scope.new_input();
     ///        let (in2_handle, in2) = scope.new_input();
-    ///        in1.binary_frontier(&in2, Pipeline, Pipeline, "example", |mut _default_cap, _info| {
+    ///        in1.binary_frontier(&in2, Pipeline, Pipeline, "example", |mut _default_cap, _info, _state_handle| {
     ///            let mut notificator = FrontierNotificator::new();
     ///            let mut stash = HashMap::new();
     ///            let mut vector1 = Vec::new();
@@ -204,6 +338,71 @@ pub trait Operator<G: Scope, D1: Data> {
     /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
     /// `logic` can read from the input streams, write to the output stream, and inspect the frontier at the inputs.
     ///
+    /// This variant allows specifying the state backend that will be used by `state_handle`.
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use timely::dataflow::operators::{Input, Inspect, FrontierNotificator};
+    /// use timely::dataflow::operators::generic::operator::Operator;
+    /// use timely::dataflow::channels::pact::Pipeline;
+    /// use timely::state::StateHandle;
+    /// use timely::state::backends::InMemoryBackend;
+    ///
+    /// timely::execute(timely::Configuration::Thread, |worker| {
+    ///    let (mut in1, mut in2) = worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
+    ///        let (in1_handle, in1) = scope.new_input();
+    ///        let (in2_handle, in2) = scope.new_input();
+    ///        in1.binary_frontier_core(&in2, Pipeline, Pipeline, "example", |mut _default_cap, _info, _state_handle: StateHandle<InMemoryBackend>| {
+    ///            let mut notificator = FrontierNotificator::new();
+    ///            let mut stash = HashMap::new();
+    ///            let mut vector1 = Vec::new();
+    ///            let mut vector2 = Vec::new();
+    ///            move |input1, input2, output| {
+    ///                while let Some((time, data)) = input1.next() {
+    ///                    data.swap(&mut vector1);
+    ///                    stash.entry(time.time().clone()).or_insert(Vec::new()).extend(vector1.drain(..));
+    ///                    notificator.notify_at(time.retain());
+    ///                }
+    ///                while let Some((time, data)) = input2.next() {
+    ///                    data.swap(&mut vector2);
+    ///                    stash.entry(time.time().clone()).or_insert(Vec::new()).extend(vector2.drain(..));
+    ///                    notificator.notify_at(time.retain());
+    ///                }
+    ///                notificator.for_each(&[input1.frontier(), input2.frontier()], |time, _not| {
+    ///                    if let Some(mut vec) = stash.remove(time.time()) {
+    ///                        output.session(&time).give_iterator(vec.drain(..));
+    ///                    }
+    ///                });
+    ///            }
+    ///        }).inspect_batch(|t, x| println!("{:?} -> {:?}", t, x));
+    ///
+    ///        (in1_handle, in2_handle)
+    ///    });
+    ///
+    ///    for i in 1..10 {
+    ///        in1.send(i - 1);
+    ///        in1.advance_to(i);
+    ///        in2.send(i - 1);
+    ///        in2.advance_to(i);
+    ///    }
+    /// }).unwrap();
+    /// ```
+    fn binary_frontier_core<D2, D3, B, L, P1, P2, S>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
+    where
+        D2: Data,
+        D3: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P1::Puller>,
+            &mut FrontieredInputHandle<G::Timestamp, D2, P2::Puller>,
+            &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
+        P1: ParallelizationContract<G::Timestamp, D1>,
+        P2: ParallelizationContract<G::Timestamp, D2>,
+        S: StateBackend;
+
+    /// Creates a new dataflow operator that partitions its input streams by a parallelization
+    /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
+    /// `logic` can read from the input streams, write to the output stream, and inspect the frontier at the inputs.
+    ///
     /// # Examples
     /// ```
     /// use std::collections::HashMap;
@@ -219,7 +418,7 @@ pub trait Operator<G: Scope, D1: Data> {
     ///
     ///        let mut vector1 = Vec::new();
     ///        let mut vector2 = Vec::new();
-    ///        in1.binary_notify(&in2, Pipeline, Pipeline, "example", None, move |input1, input2, output, notificator| {
+    ///        in1.binary_notify(&in2, Pipeline, Pipeline, "example", None, move |input1, input2, output, notificator, _state_handle| {
     ///            input1.for_each(|time, data| {
     ///                data.swap(&mut vector1);
     ///                output.session(&time).give_vec(&mut vector1);
@@ -261,6 +460,67 @@ pub trait Operator<G: Scope, D1: Data> {
     /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
     /// `logic` can read from the input streams, write to the output stream, and inspect the frontier at the inputs.
     ///
+    /// This variant allows specifying the state backend that will be used by `state_handle`.
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use timely::dataflow::operators::{Input, Inspect, FrontierNotificator};
+    /// use timely::dataflow::operators::generic::operator::Operator;
+    /// use timely::dataflow::channels::pact::Pipeline;
+    /// use timely::state::StateHandle;
+    /// use timely::state::backends::InMemoryBackend;
+    /// use timely::dataflow::operators::generic::{InputHandle, OutputHandle};
+    ///
+    /// timely::execute(timely::Configuration::Thread, |worker| {
+    ///    let (mut in1, mut in2) = worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
+    ///        let (in1_handle, in1) = scope.new_input();
+    ///        let (in2_handle, in2) = scope.new_input();
+    ///
+    ///        let mut vector1 = Vec::new();
+    ///        let mut vector2 = Vec::new();
+    ///        in1.binary_notify_core(&in2, Pipeline, Pipeline, "example", None, move |input1, input2, output, notificator, _state_handle: &StateHandle<InMemoryBackend>| {
+    ///            input1.for_each(|time, data| {
+    ///                data.swap(&mut vector1);
+    ///                output.session(&time).give_vec(&mut vector1);
+    ///                notificator.notify_at(time.retain());
+    ///            });
+    ///            input2.for_each(|time, data| {
+    ///                data.swap(&mut vector2);
+    ///                output.session(&time).give_vec(&mut vector2);
+    ///                notificator.notify_at(time.retain());
+    ///            });
+    ///            notificator.for_each(|time, _cnt, _not| {
+    ///                println!("notified at {:?}", time);
+    ///            });
+    ///        });
+    ///
+    ///        (in1_handle, in2_handle)
+    ///    });
+    ///
+    ///    for i in 1..10 {
+    ///        in1.send(i - 1);
+    ///        in1.advance_to(i);
+    ///        in2.send(i - 1);
+    ///        in2.advance_to(i);
+    ///    }
+    /// }).unwrap();
+    /// ```
+    fn binary_notify_core<D2: Data,
+        D3: Data,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P1::Puller>,
+            &mut InputHandle<G::Timestamp, D2, P2::Puller>,
+            &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>,
+            &mut Notificator<G::Timestamp>,
+            &StateHandle<S>)+'static,
+        P1: ParallelizationContract<G::Timestamp, D1>,
+        P2: ParallelizationContract<G::Timestamp, D2>,
+        S: StateBackend>
+    (&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D3>;
+
+    /// Creates a new dataflow operator that partitions its input streams by a parallelization
+    /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
+    /// `logic` can read from the input streams, write to the output stream, and inspect the frontier at the inputs.
+    ///
     /// # Examples
     /// ```
     /// use timely::dataflow::operators::{ToStream, Inspect, FrontierNotificator};
@@ -271,7 +531,7 @@ pub trait Operator<G: Scope, D1: Data> {
     /// timely::example(|scope| {
     ///     let stream2 = (0u64..10).to_stream(scope);
     ///     (0u64..10).to_stream(scope)
-    ///         .binary(&stream2, Pipeline, Pipeline, "example", |default_cap, _info| {
+    ///         .binary(&stream2, Pipeline, Pipeline, "example", |default_cap, _info, _state_handle| {
     ///             let mut cap = Some(default_cap.delayed(&12));
     ///             let mut vector1 = Vec::new();
     ///             let mut vector2 = Vec::new();
@@ -301,6 +561,55 @@ pub trait Operator<G: Scope, D1: Data> {
                  &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
         P1: ParallelizationContract<G::Timestamp, D1>,
         P2: ParallelizationContract<G::Timestamp, D2>;
+
+    /// Creates a new dataflow operator that partitions its input streams by a parallelization
+    /// strategy `pact`, and repeatedly invokes `logic`, the function returned by the function passed as `constructor`.
+    /// `logic` can read from the input streams, write to the output stream, and inspect the frontier at the inputs.
+    ///
+    /// This variant allows specifying the state backend that will be used by `state_handle`.
+    /// # Examples
+    /// ```
+    /// use timely::dataflow::operators::{ToStream, Inspect, FrontierNotificator};
+    /// use timely::dataflow::operators::generic::operator::Operator;
+    /// use timely::dataflow::channels::pact::Pipeline;
+    /// use timely::dataflow::Scope;
+    /// use timely::state::StateHandle;
+    /// use timely::state::backends::InMemoryBackend;
+    ///
+    /// timely::example(|scope| {
+    ///     let stream2 = (0u64..10).to_stream(scope);
+    ///     (0u64..10).to_stream(scope)
+    ///         .binary_core(&stream2, Pipeline, Pipeline, "example", |default_cap, _info, _state_handle: StateHandle<InMemoryBackend>| {
+    ///             let mut cap = Some(default_cap.delayed(&12));
+    ///             let mut vector1 = Vec::new();
+    ///             let mut vector2 = Vec::new();
+    ///             move |input1, input2, output| {
+    ///                 if let Some(ref c) = cap.take() {
+    ///                     output.session(&c).give(100);
+    ///                 }
+    ///                 while let Some((time, data)) = input1.next() {
+    ///                     data.swap(&mut vector1);
+    ///                     output.session(&time).give_vec(&mut vector1);
+    ///                 }
+    ///                 while let Some((time, data)) = input2.next() {
+    ///                     data.swap(&mut vector2);
+    ///                     output.session(&time).give_vec(&mut vector2);
+    ///                 }
+    ///             }
+    ///         }).inspect(|x| println!("{:?}", x));
+    /// });
+    /// ```
+    fn binary_core<D2, D3, B, L, P1, P2, S>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
+    where
+        D2: Data,
+        D3: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P1::Puller>,
+            &mut InputHandle<G::Timestamp, D2, P2::Puller>,
+            &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
+        P1: ParallelizationContract<G::Timestamp, D1>,
+        P2: ParallelizationContract<G::Timestamp, D2>,
+        S: StateBackend;
 
     /// Creates a new dataflow operator that partitions its input stream by a parallelization
     /// strategy `pact`, and repeatedly invokes the function `logic` which can read from the input stream
@@ -338,12 +647,26 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         D2: Data,
         B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<G::StateBackend>) -> L,
         L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P::Puller>,
+            &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
+        P: ParallelizationContract<G::Timestamp, D1>
+    {
+        self.unary_frontier_core(pact, name, constructor)
+    }
+
+    fn unary_frontier_core<D2, B, L, P, S>(&self, pact: P, name: &str, constructor: B) -> Stream<G, D2>
+    where
+        D2: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P::Puller>,
                  &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
-        P: ParallelizationContract<G::Timestamp, D1> {
+        P: ParallelizationContract<G::Timestamp, D1>,
+        S: StateBackend
+    {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let state_handle = self.scope().get_operator_state_handle(&operator_info);
+        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
+        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
 
         let mut input = builder.new_input(self, pact);
         let (mut output, stream) = builder.new_output();
@@ -363,14 +686,25 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
     }
 
     fn unary_notify<D2: Data,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P::Puller>,
+            &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>,
+            &mut Notificator<G::Timestamp>,
+            &StateHandle<G::StateBackend>)+'static,
+        P: ParallelizationContract<G::Timestamp, D1>>
+    (&self, pact: P, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D2> {
+        self.unary_notify_core(pact, name, init, logic)
+    }
+
+    fn unary_notify_core<D2: Data,
             L: FnMut(&mut InputHandle<G::Timestamp, D1, P::Puller>,
                      &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>,
                      &mut Notificator<G::Timestamp>,
-                     &StateHandle<G::StateBackend>)+'static,
-             P: ParallelizationContract<G::Timestamp, D1>>
+                     &StateHandle<S>)+'static,
+            P: ParallelizationContract<G::Timestamp, D1>,
+            S: StateBackend>
              (&self, pact: P, name: &str, init: impl IntoIterator<Item=G::Timestamp>, mut logic: L) -> Stream<G, D2> {
 
-        self.unary_frontier(pact, name, move |capability, _info, state_handle| {
+        self.unary_frontier_core(pact, name, move |capability, _info, state_handle| {
             let mut notificator = FrontierNotificator::new();
             for time in init {
                 notificator.notify_at(capability.delayed(&time));
@@ -390,12 +724,26 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         D2: Data,
         B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<G::StateBackend>) -> L,
         L: FnMut(&mut InputHandle<G::Timestamp, D1, P::Puller>,
+            &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
+        P: ParallelizationContract<G::Timestamp, D1>
+    {
+        self.unary_core(pact, name, constructor)
+    }
+
+    fn unary_core<D2, B, L, P, S>(&self, pact: P, name: &str, constructor: B) -> Stream<G, D2>
+    where
+        D2: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P::Puller>,
                  &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
-        P: ParallelizationContract<G::Timestamp, D1> {
+        P: ParallelizationContract<G::Timestamp, D1>,
+        S: StateBackend
+    {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let state_handle = self.scope().get_operator_state_handle(&operator_info);
+        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
+        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
 
         let mut input = builder.new_input(self, pact);
         let (mut output, stream) = builder.new_output();
@@ -420,14 +768,31 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         D3: Data,
         B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<G::StateBackend>) -> L,
         L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P1::Puller>,
+            &mut FrontieredInputHandle<G::Timestamp, D2, P2::Puller>,
+            &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
+        P1: ParallelizationContract<G::Timestamp, D1>,
+        P2: ParallelizationContract<G::Timestamp, D2>
+    {
+        self.binary_frontier_core(other, pact1, pact2, name, constructor)
+    }
+
+    fn binary_frontier_core<D2, D3, B, L, P1, P2, S>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
+    where
+        D2: Data,
+        D3: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut FrontieredInputHandle<G::Timestamp, D1, P1::Puller>,
                  &mut FrontieredInputHandle<G::Timestamp, D2, P2::Puller>,
                  &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
         P1: ParallelizationContract<G::Timestamp, D1>,
-        P2: ParallelizationContract<G::Timestamp, D2> {
+        P2: ParallelizationContract<G::Timestamp, D2>,
+        S: StateBackend
+    {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let state_handle = self.scope().get_operator_state_handle(&operator_info);
+        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
+        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
 
         let mut input1 = builder.new_input(self, pact1);
         let mut input2 = builder.new_input(other, pact2);
@@ -449,17 +814,31 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
     }
 
     fn binary_notify<D2: Data,
+        D3: Data,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P1::Puller>,
+            &mut InputHandle<G::Timestamp, D2, P2::Puller>,
+            &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>,
+            &mut Notificator<G::Timestamp>,
+            &StateHandle<G::StateBackend>)+'static,
+        P1: ParallelizationContract<G::Timestamp, D1>,
+        P2: ParallelizationContract<G::Timestamp, D2>>
+    (&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D3> {
+        self.binary_notify_core(other, pact1, pact2, name, init, logic)
+    }
+
+    fn binary_notify_core<D2: Data,
               D3: Data,
               L: FnMut(&mut InputHandle<G::Timestamp, D1, P1::Puller>,
                        &mut InputHandle<G::Timestamp, D2, P2::Puller>,
                        &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>,
                        &mut Notificator<G::Timestamp>,
-                       &StateHandle<G::StateBackend>)+'static,
+                       &StateHandle<S>)+'static,
               P1: ParallelizationContract<G::Timestamp, D1>,
-              P2: ParallelizationContract<G::Timestamp, D2>>
+              P2: ParallelizationContract<G::Timestamp, D2>,
+              S: StateBackend>
             (&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, init: impl IntoIterator<Item=G::Timestamp>, mut logic: L) -> Stream<G, D3> {
 
-        self.binary_frontier(other, pact1, pact2, name, |capability, _info, state_handle| {
+        self.binary_frontier_core(other, pact1, pact2, name, |capability, _info, state_handle: StateHandle<S>| {
             let mut notificator = FrontierNotificator::new();
             for time in init {
                 notificator.notify_at(capability.delayed(&time));
@@ -475,21 +854,37 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
 
     }
 
-
     fn binary<D2, D3, B, L, P1, P2>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
     where
         D2: Data,
         D3: Data,
         B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<G::StateBackend>) -> L,
         L: FnMut(&mut InputHandle<G::Timestamp, D1, P1::Puller>,
+            &mut InputHandle<G::Timestamp, D2, P2::Puller>,
+            &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
+        P1: ParallelizationContract<G::Timestamp, D1>,
+        P2: ParallelizationContract<G::Timestamp, D2>
+    {
+        self.binary_core(other, pact1, pact2, name, constructor)
+    }
+
+    fn binary_core<D2, D3, B, L, P1, P2, S>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
+    where
+        D2: Data,
+        D3: Data,
+        B: FnOnce(Capability<G::Timestamp>, OperatorInfo, StateHandle<S>) -> L,
+        L: FnMut(&mut InputHandle<G::Timestamp, D1, P1::Puller>,
                  &mut InputHandle<G::Timestamp, D2, P2::Puller>,
                  &mut OutputHandle<G::Timestamp, D3, Tee<G::Timestamp, D3>>)+'static,
         P1: ParallelizationContract<G::Timestamp, D1>,
-        P2: ParallelizationContract<G::Timestamp, D2> {
+        P2: ParallelizationContract<G::Timestamp, D2>,
+        S: StateBackend
+    {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let state_handle = self.scope().get_operator_state_handle(&operator_info);
+        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
+        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
 
         let mut input1 = builder.new_input(self, pact1);
         let mut input2 = builder.new_input(other, pact2);

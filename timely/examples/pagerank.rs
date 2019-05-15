@@ -31,7 +31,7 @@ fn main() {
                 Exchange::new(|x: &((usize, usize), i64)| (x.0).0 as u64),
                 Exchange::new(|x: &(usize, i64)| x.0 as u64),
                 "PageRank",
-                |_capability, _info| {
+                |_capability, _info, _state_handle| {
 
                     // where we stash out-of-order data.
                     let mut edge_stash = HashMap::new();

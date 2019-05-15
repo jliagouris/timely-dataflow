@@ -59,7 +59,7 @@ fn main() {
                 Exchange::new(|x: &(u32, u32)| u64::from(x.0)),
                 "BFS",
                 vec![],
-                move |input1, input2, output, notify| {
+                move |input1, input2, output, notify, _state_handle| {
 
                     // receive edges, start to sort them
                     input1.for_each(|time, data| {

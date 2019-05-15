@@ -5,12 +5,11 @@ use crate::order::Product;
 use crate::progress::timestamp::Refines;
 use crate::communication::Allocate;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateHandle};
+use crate::state::{StateBackend, StateBackendInfo, StateHandle};
 
 pub mod child;
 
 pub use self::child::Child;
-use crate::dataflow::operators::generic::OperatorInfo;
 
 /// The information a child scope needs from its parent.
 pub trait ScopeParent: AsWorker+Clone {
@@ -105,8 +104,8 @@ pub trait Scope: ScopeParent {
     /// A handle for accessing managed state
     fn get_state_handle(&self) -> StateHandle<Self::StateBackend>;
 
-    /// A handle for accessing managed operator state
-    fn get_operator_state_handle(&self, info: &OperatorInfo) -> StateHandle<Self::StateBackend>;
+    /// The information required for spawning state backends
+    fn get_state_backend_info(&self) -> &StateBackendInfo;
 
     /// Creates a iterative dataflow subgraph.
     ///

@@ -59,7 +59,7 @@ trait UnionFind {
 impl<G: Scope> UnionFind for Stream<G, (usize, usize)> {
     fn union_find(&self) -> Stream<G, (usize, usize)> {
 
-        self.unary(Pipeline, "UnionFind", |_,_| {
+        self.unary(Pipeline, "UnionFind", |_,_,_| {
 
             let mut roots = vec![];  // u32 works, and is smaller than uint/u64
             let mut ranks = vec![];  // u8 should be large enough (n < 2^256)

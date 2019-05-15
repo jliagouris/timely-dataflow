@@ -67,7 +67,7 @@ impl<'a, T: Timestamp, D: Data, P: Pull<Bundle<T, D>>> InputHandle<T, D, P> {
     ///
     /// timely::example(|scope| {
     ///     (0..10).to_stream(scope)
-    ///            .unary(Pipeline, "example", |_cap, _info| |input, output| {
+    ///            .unary(Pipeline, "example", |_cap, _info, _state_handle| |input, output| {
     ///                input.for_each(|cap, data| {
     ///                    output.session(&cap).give_vec(&mut data.replace(Vec::new()));
     ///                });
@@ -114,7 +114,7 @@ impl<'a, T: Timestamp, D: Data, P: Pull<Bundle<T, D>>+'a> FrontieredInputHandle<
     ///
     /// timely::example(|scope| {
     ///     (0..10).to_stream(scope)
-    ///            .unary(Pipeline, "example", |_cap,_info| |input, output| {
+    ///            .unary(Pipeline, "example", |_cap,_info,_state_handle| |input, output| {
     ///                input.for_each(|cap, data| {
     ///                    output.session(&cap).give_vec(&mut data.replace(Vec::new()));
     ///                });
@@ -198,7 +198,7 @@ impl<'a, T: Timestamp, D, P: Push<Bundle<T, D>>> OutputHandle<'a, T, D, P> {
     ///
     /// timely::example(|scope| {
     ///     (0..10).to_stream(scope)
-    ///            .unary(Pipeline, "example", |_cap, _info| |input, output| {
+    ///            .unary(Pipeline, "example", |_cap, _info, _state_handle| |input, output| {
     ///                input.for_each(|cap, data| {
     ///                    let time = cap.time().clone() + 1;
     ///                    output.session(&cap.delayed(&time))

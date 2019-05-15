@@ -15,7 +15,7 @@ use crate::progress::SubgraphBuilder;
 use crate::progress::operate::Operate;
 use crate::dataflow::scopes::Child;
 use crate::logging::TimelyLogger;
-use crate::timely_state::StateBackend;
+use crate::state::{StateBackend, StateBackendInfo};
 
 /// Methods provided by the root Worker.
 ///
@@ -397,12 +397,15 @@ impl<A: Allocate> Worker<A> {
         let subscope = SubgraphBuilder::new_from(dataflow_index, addr, logging.clone(), name);
         let subscope = RefCell::new(subscope);
 
+        let state_backend_info = StateBackendInfo {};
+
         let result = {
             let mut builder = Child {
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: logging.clone(),
-                state_backend: Rc::new(RefCell::new(S::new()))
+                state_backend: Rc::new(RefCell::new(S::new(&state_backend_info))),
+                state_backend_info,
             };
             func(&mut resources, &mut builder)
         };

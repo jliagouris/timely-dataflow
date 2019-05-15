@@ -19,7 +19,7 @@ fn barrier_sync_helper(config: ::timely::Configuration) {
                 Pipeline,
                 "Barrier",
                 vec![0, 1],
-                move |_, _, notificator| {
+                move |_, _, notificator, _| {
                     let mut count = 0;
                     while let Some((cap, _count)) = notificator.next() {
                         count += 1;

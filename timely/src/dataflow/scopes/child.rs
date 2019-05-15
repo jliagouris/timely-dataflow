@@ -13,8 +13,7 @@ use crate::progress::timestamp::Refines;
 use crate::order::Product;
 use crate::logging::TimelyLogger as Logger;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateHandle};
-use crate::dataflow::operators::generic::OperatorInfo;
+use crate::state::{StateBackend, StateBackendInfo, StateHandle};
 
 use super::{ScopeParent, Scope};
 
@@ -37,6 +36,8 @@ where
     pub logging:  Option<Logger>,
     /// The state backend for this code.
     pub state_backend: Rc<RefCell<S>>,
+    /// The information required for spawning state backends
+    pub state_backend_info: StateBackendInfo,
 }
 
 impl<'a, G, T, S> Child<'a, G, T, S>
@@ -133,6 +134,7 @@ where
                 parent: self.clone(),
                 logging: self.logging.clone(),
                 state_backend: self.state_backend.clone(),
+                state_backend_info: self.state_backend_info.clone(),
             };
             func(&mut builder)
         };
@@ -148,9 +150,8 @@ where
         StateHandle::new(self.state_backend.clone(), &name)
     }
 
-    fn get_operator_state_handle(&self, info: &OperatorInfo) -> StateHandle<Self::StateBackend> {
-        let name = [&self.index().to_string(), ".", &info.global_id.to_string(), ".", &info.local_id.to_string(), "."].join("");
-        StateHandle::new(self.state_backend.clone(), &name)
+    fn get_state_backend_info(&self) -> &StateBackendInfo {
+        &self.state_backend_info
     }
 }
 
@@ -168,6 +169,7 @@ where
             parent: self.parent.clone(),
             logging: self.logging.clone(),
             state_backend: self.state_backend.clone(),
+            state_backend_info: self.state_backend_info.clone(),
         }
     }
 }

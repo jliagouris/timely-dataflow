@@ -17,7 +17,7 @@ fn main() {
                 Pipeline,
                 "Barrier",
                 vec![0],
-                move |_, _, notificator| {
+                move |_, _, notificator, _| {
                     while let Some((cap, _count)) = notificator.next() {
                         let time = *cap.time() + 1;
                         if time < iterations {
