@@ -5,8 +5,11 @@ use std::rc::Rc;
 pub mod backends;
 mod primitives;
 
+#[derive(Clone)]
+pub struct StateBackendInfo {}
+
 pub trait StateBackend: 'static {
-    fn new() -> Self;
+    fn new(info: &StateBackendInfo) -> Self;
     fn store_count(&mut self, name: &str, count: u64);
     fn get_count(&self, name: &str) -> u64;
 }

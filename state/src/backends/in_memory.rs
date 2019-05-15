@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use crate::StateBackend;
+use crate::{StateBackend, StateBackendInfo};
 
 pub struct InMemoryBackend {
     counts: HashMap<String, u64>,
 }
 
 impl StateBackend for InMemoryBackend {
-    fn new() -> Self {
+    fn new(_: &StateBackendInfo) -> Self {
         InMemoryBackend {
             counts: HashMap::new(),
         }

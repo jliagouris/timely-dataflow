@@ -48,13 +48,15 @@ impl<T: StateBackend> ManagedCount<T> {
 mod tests {
     use crate::backends::InMemoryBackend;
     use crate::primitives::ManagedCount;
-    use crate::StateBackend;
+    use crate::{StateBackend, StateBackendInfo};
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    const STATE_BACKEND_INFO: StateBackendInfo = StateBackendInfo {};
+
     #[test]
     fn new_count_returns_zero() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new()));
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
         let managed_count = ManagedCount::new(backend.clone(), "count");
 
         assert_eq!(managed_count.get(), 0);
@@ -62,7 +64,7 @@ mod tests {
 
     #[test]
     fn can_increase_count() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new()));
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
         let mut managed_count = ManagedCount::new(backend.clone(), "count");
 
         assert_eq!(managed_count.get(), 0);
@@ -74,7 +76,7 @@ mod tests {
 
     #[test]
     fn can_increase_and_decrease_count() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new()));
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
         let mut managed_count = ManagedCount::new(backend.clone(), "count");
 
         assert_eq!(managed_count.get(), 0);
@@ -88,7 +90,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn cannot_decrease_count_below_zero() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new()));
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
         let mut managed_count = ManagedCount::new(backend.clone(), "count");
 
         assert_eq!(managed_count.get(), 0);
@@ -98,7 +100,7 @@ mod tests {
 
     #[test]
     fn can_set_count_directly() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new()));
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
         let mut managed_count = ManagedCount::new(backend.clone(), "count");
 
         assert_eq!(managed_count.get(), 0);
