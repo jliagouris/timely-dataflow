@@ -1,13 +1,16 @@
+extern crate bincode;
+
 use std::collections::HashMap;
 
 use crate::{StateBackend, StateBackendInfo};
-use faster_rs::FasterValue;
+use bincode::serialize;
+use faster_rs::{FasterKey, FasterValue};
 use std::any::Any;
 use std::rc::Rc;
 
 pub struct InMemoryBackend {
     counts: HashMap<String, u64>,
-    values: HashMap<String, Rc<Any>>,
+    values: HashMap<Vec<u8>, Rc<Any>>,
 }
 
 impl StateBackend for InMemoryBackend {
@@ -27,14 +30,24 @@ impl StateBackend for InMemoryBackend {
         }
     }
 
-    fn store_value<T: 'static + FasterValue>(&mut self, name: &str, value: T) {
-        self.values.insert(name.to_owned(), Rc::new(value));
+    fn store_value<K, V>(&mut self, key: &K, value: V)
+    where
+        K: FasterKey,
+        V: 'static + FasterValue,
+    {
+        let serialised_key = serialize(key).unwrap();
+        self.values.insert(serialised_key, Rc::new(value));
     }
 
-    fn get_value<T: 'static + FasterValue>(&mut self, name: &str) -> Option<T> {
-        match self.values.remove(name) {
+    fn get_value<K, V>(&mut self, key: &K) -> Option<V>
+    where
+        K: FasterKey,
+        V: 'static + FasterValue,
+    {
+        let serialised_key = serialize(key).unwrap();
+        match self.values.remove(&serialised_key) {
             None => None,
-            Some(any) => match any.downcast::<T>() {
+            Some(any) => match any.downcast::<V>() {
                 Ok(val) => Rc::try_unwrap(val).ok(),
                 Err(_) => None,
             },

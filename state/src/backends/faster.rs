@@ -1,6 +1,6 @@
 use crate::{StateBackend, StateBackendInfo};
 
-use faster_rs::{status, FasterKv, FasterValue};
+use faster_rs::{status, FasterKey, FasterKv, FasterValue};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -49,17 +49,24 @@ impl StateBackend for FASTERBackend {
         };
     }
 
-    fn store_value<T: 'static + FasterValue>(&mut self, name: &str, value: T) {
+    fn store_value<K, V>(&mut self, key: &K, value: V)
+    where
+        K: FasterKey,
+        V: 'static + FasterValue,
+    {
         let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
         *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .upsert(&name, &value, old_monotonic_serial_number);
+        self.faster.upsert(key, &value, old_monotonic_serial_number);
     }
 
-    fn get_value<T: 'static + FasterValue>(&mut self, name: &str) -> Option<T> {
+    fn get_value<K, V>(&mut self, key: &K) -> Option<V>
+    where
+        K: FasterKey,
+        V: 'static + FasterValue,
+    {
         let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
         *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        let (status, recv) = self.faster.read(&name, old_monotonic_serial_number);
+        let (status, recv) = self.faster.read(key, old_monotonic_serial_number);
         if status != status::OK {
             return None;
         }
