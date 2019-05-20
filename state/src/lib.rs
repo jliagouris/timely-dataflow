@@ -1,7 +1,7 @@
 extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedValue};
-use faster_rs::{FasterKey, FasterKv, FasterValue};
+use faster_rs::{FasterKv, FasterValue};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -29,14 +29,8 @@ pub trait StateBackend: 'static {
     fn store_count(&mut self, name: &str, count: u64);
     fn get_count(&self, name: &str) -> u64;
 
-    fn store_value<K, V>(&mut self, key: &K, value: V)
-    where
-        K: FasterKey,
-        V: 'static + FasterValue;
-    fn get_value<K, V>(&mut self, key: &K) -> Option<V>
-    where
-        K: FasterKey,
-        V: 'static + FasterValue;
+    fn store_value<T: 'static + FasterValue>(&mut self, name: &str, value: T);
+    fn get_value<T: 'static + FasterValue>(&mut self, name: &str) -> Option<T>;
 }
 
 pub struct StateHandle<S: StateBackend> {
