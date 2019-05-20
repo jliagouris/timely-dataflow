@@ -1,7 +1,7 @@
 extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedValue};
-use faster_rs::FasterValue;
+use faster_rs::{FasterKv, FasterValue};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,7 +9,19 @@ pub mod backends;
 mod primitives;
 
 #[derive(Clone)]
-pub struct StateBackendInfo {}
+pub struct StateBackendInfo {
+    faster: Rc<FasterKv>,
+    monotonic_serial_number: Rc<RefCell<u64>>,
+}
+
+impl StateBackendInfo {
+    pub fn new(faster: FasterKv) -> Self {
+        StateBackendInfo {
+            faster: Rc::new(faster),
+            monotonic_serial_number: Rc::new(RefCell::new(1)),
+        }
+    }
+}
 
 pub trait StateBackend: 'static {
     fn new(info: &StateBackendInfo) -> Self;

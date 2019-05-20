@@ -1,4 +1,6 @@
 //! The root of each single-threaded worker.
+extern crate faster_rs;
+extern crate tempdir;
 
 use std::rc::Rc;
 use std::cell::{RefCell, RefMut};
@@ -16,6 +18,9 @@ use crate::progress::operate::Operate;
 use crate::dataflow::scopes::Child;
 use crate::logging::TimelyLogger;
 use crate::state::{StateBackend, StateBackendInfo};
+
+use faster_rs::FasterKv;
+use tempdir::TempDir;
 
 /// Methods provided by the root Worker.
 ///
@@ -69,6 +74,9 @@ pub struct Worker<A: Allocate> {
     // Temporary storage for channel identifiers during dataflow construction.
     // These are then associated with a dataflow once constructed.
     temp_channel_ids: Rc<RefCell<Vec<usize>>>,
+
+    // State storage
+    directory: Rc<TempDir>,
 }
 
 impl<A: Allocate> AsWorker for Worker<A> {
@@ -117,6 +125,9 @@ impl<A: Allocate> Worker<A> {
             activations: Rc::new(RefCell::new(Activations::new())),
             active_dataflows: Vec::new(),
             temp_channel_ids: Rc::new(RefCell::new(Vec::new())),
+            directory: Rc::new(
+                TempDir::new("timely").expect("Unable to create directory for state backend"),
+            ),
         }
     }
 
@@ -397,7 +408,14 @@ impl<A: Allocate> Worker<A> {
         let subscope = SubgraphBuilder::new_from(dataflow_index, addr, logging.clone(), name);
         let subscope = RefCell::new(subscope);
 
-        let state_backend_info = StateBackendInfo {};
+        // TODO: check sizing
+        let faster_kv = FasterKv::new(
+            1 << 14,
+            17179869184,
+            self.directory.path().to_str().unwrap().to_owned(),
+        )
+        .unwrap();
+        let state_backend_info = StateBackendInfo::new(faster_kv);
 
         let result = {
             let mut builder = Child {
@@ -461,6 +479,7 @@ impl<A: Allocate> Clone for Worker<A> {
             activations: self.activations.clone(),
             active_dataflows: Vec::new(),
             temp_channel_ids: self.temp_channel_ids.clone(),
+            directory: self.directory.clone(),
         }
     }
 }

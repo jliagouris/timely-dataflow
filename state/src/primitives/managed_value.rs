@@ -30,14 +30,16 @@ mod tests {
     use crate::backends::InMemoryBackend;
     use crate::primitives::ManagedValue;
     use crate::{StateBackend, StateBackendInfo};
+    use faster_rs::FasterKv;
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    const STATE_BACKEND_INFO: StateBackendInfo = StateBackendInfo {};
-
     #[test]
     fn new_value_returns_none() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
+        let state_backend_info = StateBackendInfo::new(
+            FasterKv::new(1 << 14, 17179869184, "/tmp/storage".to_owned()).unwrap(),
+        );
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&state_backend_info)));
         let managed_value = ManagedValue::new(backend.clone(), "value");
 
         assert!(managed_value.get::<String>().is_none());
@@ -45,7 +47,10 @@ mod tests {
 
     #[test]
     fn set_get_value_returns_some() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
+        let state_backend_info = StateBackendInfo::new(
+            FasterKv::new(1 << 14, 17179869184, "/tmp/storage".to_owned()).unwrap(),
+        );
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&state_backend_info)));
         let managed_value = ManagedValue::new(backend.clone(), "value");
 
         managed_value.set("hello".to_owned());
@@ -54,7 +59,10 @@ mod tests {
 
     #[test]
     fn set_get_value_returns_value() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
+        let state_backend_info = StateBackendInfo::new(
+            FasterKv::new(1 << 14, 17179869184, "/tmp/storage".to_owned()).unwrap(),
+        );
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&state_backend_info)));
         let managed_value = ManagedValue::new(backend.clone(), "value");
 
         let value = "hello".to_owned();
@@ -65,7 +73,10 @@ mod tests {
 
     #[test]
     fn set_get_get_value_returns_none() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
+        let state_backend_info = StateBackendInfo::new(
+            FasterKv::new(1 << 14, 17179869184, "/tmp/storage".to_owned()).unwrap(),
+        );
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&state_backend_info)));
         let managed_value = ManagedValue::new(backend.clone(), "value");
 
         managed_value.set("hello".to_owned());
@@ -75,7 +86,10 @@ mod tests {
 
     #[test]
     fn set_get_set_get_different_types_allowed() {
-        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&STATE_BACKEND_INFO)));
+        let state_backend_info = StateBackendInfo::new(
+            FasterKv::new(1 << 14, 17179869184, "/tmp/storage".to_owned()).unwrap(),
+        );
+        let backend = Rc::new(RefCell::new(InMemoryBackend::new(&state_backend_info)));
         let managed_value = ManagedValue::new(backend.clone(), "value");
 
         managed_value.set("hello".to_owned());
