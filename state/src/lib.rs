@@ -30,10 +30,11 @@ pub trait StateBackend: 'static {
     fn store_count(&mut self, name: &str, count: u64);
     fn get_count(&self, name: &str) -> u64;
 
-    fn store_value<T: 'static + FasterValue>(&mut self, name: &str, value: T);
-    fn get_value<T: 'static + FasterValue>(&mut self, name: &str) -> Option<T>;
-
     fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>>;
+    fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
+    where
+        K: 'static + FasterKey + Hash + Eq,
+        V: 'static + FasterValue;
 }
 
 pub struct StateHandle<S: StateBackend> {
@@ -55,15 +56,14 @@ impl<S: StateBackend> StateHandle<S> {
         ManagedCount::new(self.backend.clone(), &physical_name)
     }
 
-    pub fn get_managed_map<K, V>(&self, name: &str) -> ManagedMap<S, K, V>
+    pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        S: StateBackend,
-        K: FasterKey + Hash + Eq,
+        K: 'static + FasterKey + Hash + Eq,
         V: 'static + FasterValue,
     {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        ManagedMap::new(self.backend.clone(), &physical_name)
+        self.backend.borrow().get_managed_map(&physical_name)
     }
 
     pub fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {

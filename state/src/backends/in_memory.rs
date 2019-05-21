@@ -1,21 +1,20 @@
 use std::collections::HashMap;
 
-use crate::primitives::ManagedValue;
+use crate::primitives::{ManagedMap, ManagedValue};
 use crate::{StateBackend, StateBackendInfo};
-use faster_rs::FasterValue;
+use faster_rs::{FasterKey, FasterValue};
 use std::any::Any;
+use std::hash::Hash;
 use std::rc::Rc;
 
 pub struct InMemoryBackend {
     counts: HashMap<String, u64>,
-    values: HashMap<String, Rc<Any>>,
 }
 
 impl StateBackend for InMemoryBackend {
     fn new(_: &StateBackendInfo) -> Self {
         InMemoryBackend {
             counts: HashMap::new(),
-            values: HashMap::new(),
         }
     }
     fn store_count(&mut self, name: &str, count: u64) {
@@ -28,22 +27,16 @@ impl StateBackend for InMemoryBackend {
         }
     }
 
-    fn store_value<T: 'static + FasterValue>(&mut self, name: &str, value: T) {
-        self.values.insert(name.to_owned(), Rc::new(value));
-    }
-
-    fn get_value<T: 'static + FasterValue>(&mut self, name: &str) -> Option<T> {
-        match self.values.remove(name) {
-            None => None,
-            Some(any) => match any.downcast::<T>() {
-                Ok(val) => Rc::try_unwrap(val).ok(),
-                Err(_) => None,
-            },
-        }
-    }
-
     fn get_managed_value<V: 'static + FasterValue>(&self, _name: &str) -> Box<ManagedValue<V>> {
         Box::new(InMemoryManagedValue::new())
+    }
+
+    fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
+    where
+        K: 'static + FasterKey + Hash + Eq,
+        V: 'static + FasterValue,
+    {
+        Box::new(InMemoryManagedMap::new())
     }
 }
 
@@ -66,10 +59,44 @@ impl<V: 'static + FasterValue> ManagedValue<V> for InMemoryManagedValue<V> {
     }
 }
 
+pub struct InMemoryManagedMap<K, V>
+where
+    K: 'static + FasterKey + Hash + Eq,
+    V: 'static + FasterValue,
+{
+    map: HashMap<K, V>,
+}
+
+impl<K, V> InMemoryManagedMap<K, V>
+where
+    K: 'static + FasterKey + Hash + Eq,
+    V: 'static + FasterValue,
+{
+    fn new() -> Self {
+        InMemoryManagedMap {
+            map: HashMap::new(),
+        }
+    }
+}
+
+impl<K, V> ManagedMap<K, V> for InMemoryManagedMap<K, V>
+where
+    K: 'static + FasterKey + Hash + Eq,
+    V: 'static + FasterValue,
+{
+    fn insert(&mut self, key: K, value: V) {
+        self.map.insert(key, value);
+    }
+
+    fn get(&mut self, key: &K) -> Option<V> {
+        self.map.remove(key)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::backends::in_memory::InMemoryManagedValue;
-    use crate::primitives::ManagedValue;
+    use crate::backends::in_memory::{InMemoryManagedMap, InMemoryManagedValue};
+    use crate::primitives::{ManagedMap, ManagedValue};
 
     #[test]
     fn new_in_memory_managed_value_contains_none() {
@@ -83,5 +110,23 @@ mod tests {
         value.set(42);
         assert_eq!(value.get(), Some(42));
         assert_eq!(value.get(), None);
+    }
+
+    #[test]
+    fn new_in_memory_managed_map_gets_none() {
+        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+        assert_eq!(map.get(&String::from("something")), None);
+    }
+
+    #[test]
+    fn in_memory_managed_map_gets_some_then_gets_none() {
+        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+
+        let key = String::from("something");
+        let value = 42;
+
+        map.insert(key.clone(), value);
+        assert_eq!(map.get(&key), Some(value));
+        assert_eq!(map.get(&key), None);
     }
 }
