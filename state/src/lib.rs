@@ -27,9 +27,7 @@ impl StateBackendInfo {
 pub trait StateBackend: 'static {
     fn new(info: &StateBackendInfo) -> Self;
 
-    fn store_count(&mut self, name: &str, count: u64);
-    fn get_count(&self, name: &str) -> u64;
-
+    fn get_managed_count(&self, name: &str) -> Box<ManagedCount>;
     fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>>;
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
@@ -50,10 +48,10 @@ impl<S: StateBackend> StateHandle<S> {
         }
     }
 
-    pub fn get_managed_count(&self, name: &str) -> ManagedCount<S> {
+    pub fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        ManagedCount::new(self.backend.clone(), &physical_name)
+        self.backend.borrow().get_managed_count(&physical_name)
     }
 
     pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>

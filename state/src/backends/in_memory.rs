@@ -1,42 +1,59 @@
 use std::collections::HashMap;
 
-use crate::primitives::{ManagedMap, ManagedValue};
+use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::{StateBackend, StateBackendInfo};
 use faster_rs::{FasterKey, FasterValue};
-use std::any::Any;
 use std::hash::Hash;
-use std::rc::Rc;
 
-pub struct InMemoryBackend {
-    counts: HashMap<String, u64>,
-}
+pub struct InMemoryBackend {}
 
 impl StateBackend for InMemoryBackend {
     fn new(_: &StateBackendInfo) -> Self {
-        InMemoryBackend {
-            counts: HashMap::new(),
-        }
+        InMemoryBackend {}
     }
-    fn store_count(&mut self, name: &str, count: u64) {
-        self.counts.insert(name.to_owned(), count);
-    }
-    fn get_count(&self, name: &str) -> u64 {
-        match self.counts.get(name) {
-            None => 0,
-            Some(count) => *count,
-        }
+
+    fn get_managed_count(&self, _name: &str) -> Box<ManagedCount> {
+        Box::new(InMemoryManagedCount::new())
     }
 
     fn get_managed_value<V: 'static + FasterValue>(&self, _name: &str) -> Box<ManagedValue<V>> {
         Box::new(InMemoryManagedValue::new())
     }
 
-    fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
+    fn get_managed_map<K, V>(&self, _name: &str) -> Box<ManagedMap<K, V>>
     where
         K: 'static + FasterKey + Hash + Eq,
         V: 'static + FasterValue,
     {
         Box::new(InMemoryManagedMap::new())
+    }
+}
+
+pub struct InMemoryManagedCount {
+    count: i64,
+}
+
+impl InMemoryManagedCount {
+    fn new() -> Self {
+        InMemoryManagedCount { count: 0 }
+    }
+}
+
+impl ManagedCount for InMemoryManagedCount {
+    fn decrease(&mut self, amount: i64) {
+        self.count -= amount;
+    }
+
+    fn increase(&mut self, amount: i64) {
+        self.count += amount;
+    }
+
+    fn get(&self) -> i64 {
+        self.count
+    }
+
+    fn set(&mut self, value: i64) {
+        self.count = value;
     }
 }
 
@@ -95,8 +112,37 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::backends::in_memory::{InMemoryManagedMap, InMemoryManagedValue};
-    use crate::primitives::{ManagedMap, ManagedValue};
+    use crate::backends::in_memory::{
+        InMemoryManagedCount, InMemoryManagedMap, InMemoryManagedValue,
+    };
+    use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
+
+    #[test]
+    fn new_in_memory_managed_count_returns_0() {
+        let count = InMemoryManagedCount::new();
+        assert_eq!(count.get(), 0);
+    }
+
+    #[test]
+    fn in_memory_managed_count_can_increase() {
+        let mut count = InMemoryManagedCount::new();
+        count.increase(42);
+        assert_eq!(count.get(), 42);
+    }
+
+    #[test]
+    fn in_memory_managed_count_can_decrease() {
+        let mut count = InMemoryManagedCount::new();
+        count.decrease(42);
+        assert_eq!(count.get(), -42);
+    }
+
+    #[test]
+    fn in_memory_managed_count_can_set_directly() {
+        let mut count = InMemoryManagedCount::new();
+        count.set(42);
+        assert_eq!(count.get(), 42);
+    }
 
     #[test]
     fn new_in_memory_managed_value_contains_none() {

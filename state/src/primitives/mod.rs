@@ -1,6 +1,12 @@
 use faster_rs::{FasterKey, FasterValue};
-pub use managed_count::ManagedCount;
 use std::hash::Hash;
+
+pub trait ManagedCount {
+    fn decrease(&mut self, amount: i64);
+    fn increase(&mut self, amount: i64);
+    fn get(&self) -> i64;
+    fn set(&mut self, value: i64);
+}
 
 pub trait ManagedValue<V: 'static + FasterValue> {
     fn set(&mut self, value: V);
@@ -15,5 +21,3 @@ where
     fn insert(&mut self, key: K, value: V);
     fn get(&mut self, key: &K) -> Option<V>;
 }
-
-mod managed_count;

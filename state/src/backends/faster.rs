@@ -1,4 +1,4 @@
-use crate::primitives::{ManagedMap, ManagedValue};
+use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::{StateBackend, StateBackendInfo};
 
 use faster_rs::{status, FasterKey, FasterKv, FasterValue};
@@ -31,25 +31,12 @@ impl StateBackend for FASTERBackend {
         }
     }
 
-    fn store_count(&mut self, name: &str, count: u64) {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .upsert(&name, &count, old_monotonic_serial_number);
-        self.maybe_refresh(old_monotonic_serial_number);
-    }
-
-    fn get_count(&self, name: &str) -> u64 {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        let (status, recv) = self.faster.read(&name, old_monotonic_serial_number);
-        if status != status::OK {
-            return 0;
-        }
-        return match recv.recv() {
-            Ok(count) => count,
-            Err(_) => 0,
-        };
+    fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {
+        Box::new(FASTERManagedCount::new(
+            Rc::clone(&self.faster),
+            Rc::clone(&self.monotonic_serial_number),
+            name,
+        ))
     }
 
     fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {
@@ -70,6 +57,58 @@ impl StateBackend for FASTERBackend {
             Rc::clone(&self.monotonic_serial_number),
             name,
         ))
+    }
+}
+
+pub struct FASTERManagedCount {
+    faster: Rc<FasterKv>,
+    monotonic_serial_number: Rc<RefCell<u64>>,
+    name: String,
+}
+
+impl FASTERManagedCount {
+    fn new(faster: Rc<FasterKv>, monotonic_serial_number: Rc<RefCell<u64>>, name: &str) -> Self {
+        FASTERManagedCount {
+            faster,
+            monotonic_serial_number,
+            name: name.to_owned(),
+        }
+    }
+}
+
+impl ManagedCount for FASTERManagedCount {
+    fn decrease(&mut self, amount: i64) {
+        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
+        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+        self.faster
+            .rmw(&self.name, &-amount, old_monotonic_serial_number);
+    }
+
+    fn increase(&mut self, amount: i64) {
+        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
+        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+        self.faster
+            .rmw(&self.name, &amount, old_monotonic_serial_number);
+    }
+
+    fn get(&self) -> i64 {
+        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
+        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+        let (status, recv) = self.faster.read(&self.name, old_monotonic_serial_number);
+        if status != status::OK {
+            return 0;
+        }
+        return match recv.recv() {
+            Ok(count) => count,
+            Err(_) => 0,
+        };
+    }
+
+    fn set(&mut self, value: i64) {
+        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
+        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+        self.faster
+            .upsert(&self.name, &value, old_monotonic_serial_number);
     }
 }
 
