@@ -1,9 +1,10 @@
 extern crate faster_rs;
 
-use crate::primitives::{ManagedCount, ManagedValue};
-use faster_rs::{FasterKv, FasterValue};
+use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
+use faster_rs::{FasterKey, FasterKv, FasterValue};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::hash::Hash;
 
 pub mod backends;
 mod primitives;
@@ -56,5 +57,16 @@ impl<S: StateBackend> StateHandle<S> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
         ManagedValue::new(self.backend.clone(), &physical_name)
+    }
+
+    pub fn get_managed_map<K, V>(&self, name: &str) -> ManagedMap<S, K ,V>
+    where
+        S: StateBackend,
+        K: FasterKey + Hash + Eq,
+        V: 'static + FasterValue
+    {
+        let mut physical_name = self.name.clone();
+        physical_name.push_str(name);
+        ManagedMap::new(self.backend.clone(), &physical_name)
     }
 }
