@@ -1,7 +1,9 @@
+use crate::primitives::ManagedValue;
 use crate::{StateBackend, StateBackendInfo};
 
 use faster_rs::{status, FasterKv, FasterValue};
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 pub struct FASTERBackend {
@@ -60,6 +62,53 @@ impl StateBackend for FASTERBackend {
         let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
         *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
         let (status, recv) = self.faster.read(&name, old_monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(val),
+            Err(_) => None,
+        };
+    }
+
+    fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {
+        Box::new(FASTERManagedValue::new(
+            Rc::clone(&self.faster),
+            Rc::clone(&self.monotonic_serial_number),
+            name,
+        ))
+    }
+}
+
+pub struct FASTERManagedValue<V: 'static + FasterValue> {
+    faster: Rc<FasterKv>,
+    monotonic_serial_number: Rc<RefCell<u64>>,
+    name: String,
+    value: PhantomData<V>,
+}
+
+impl<V: 'static + FasterValue> FASTERManagedValue<V> {
+    fn new(faster: Rc<FasterKv>, monotonic_serial_number: Rc<RefCell<u64>>, name: &str) -> Self {
+        FASTERManagedValue {
+            faster,
+            monotonic_serial_number,
+            name: name.to_owned(),
+            value: PhantomData,
+        }
+    }
+}
+
+impl<V: 'static + FasterValue> ManagedValue<V> for FASTERManagedValue<V> {
+    fn set(&mut self, value: V) {
+        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
+        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+        self.faster
+            .upsert(&self.name, &value, old_monotonic_serial_number);
+    }
+    fn get(&mut self) -> Option<V> {
+        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
+        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+        let (status, recv) = self.faster.read(&self.name, old_monotonic_serial_number);
         if status != status::OK {
             return None;
         }
