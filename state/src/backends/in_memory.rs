@@ -4,6 +4,7 @@ use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::{StateBackend, StateBackendInfo};
 use faster_rs::{FasterKey, FasterValue};
 use std::hash::Hash;
+use std::rc::Rc;
 
 pub struct InMemoryBackend {}
 
@@ -58,7 +59,7 @@ impl ManagedCount for InMemoryManagedCount {
 }
 
 pub struct InMemoryManagedValue<V: FasterValue> {
-    value: Option<V>,
+    value: Option<Rc<V>>,
 }
 
 impl<V: 'static + FasterValue> InMemoryManagedValue<V> {
@@ -69,16 +70,27 @@ impl<V: 'static + FasterValue> InMemoryManagedValue<V> {
 
 impl<V: 'static + FasterValue> ManagedValue<V> for InMemoryManagedValue<V> {
     fn set(&mut self, value: V) {
-        self.value = Some(value);
+        self.value.replace(Rc::new(value));
     }
-    fn get(&mut self) -> Option<V> {
-        self.value.take()
+
+    fn get(&mut self) -> Option<Rc<V>> {
+        match &self.value {
+            None => None,
+            Some(val) => Some(Rc::clone(val)),
+        }
+    }
+
+    fn take(&mut self) -> Option<V> {
+        match self.value.take() {
+            None => None,
+            Some(val) => Rc::try_unwrap(val).ok(),
+        }
     }
 
     fn rmw(&mut self, modification: V) {
         self.value = match &self.value {
-            None => Some(modification),
-            Some(val) => Some(val.rmw(modification)),
+            None => Some(Rc::new(modification)),
+            Some(val) => Some(Rc::new(val.rmw(modification))),
         }
     }
 }
@@ -88,7 +100,7 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue,
 {
-    map: HashMap<K, V>,
+    map: HashMap<K, Rc<V>>,
 }
 
 impl<K, V> InMemoryManagedMap<K, V>
@@ -109,11 +121,21 @@ where
     V: 'static + FasterValue,
 {
     fn insert(&mut self, key: K, value: V) {
-        self.map.insert(key, value);
+        self.map.insert(key, Rc::new(value));
     }
 
-    fn get(&mut self, key: &K) -> Option<V> {
-        self.map.remove(key)
+    fn get(&mut self, key: &K) -> Option<Rc<V>> {
+        match self.map.get(key) {
+            None => None,
+            Some(val) => Some(Rc::clone(val)),
+        }
+    }
+
+    fn remove(&mut self, key: &K) -> Option<V> {
+        match self.map.remove(key) {
+            None => None,
+            Some(val) => Rc::try_unwrap(val).ok(),
+        }
     }
 
     fn rmw(&mut self, key: K, modification: V) {
@@ -121,7 +143,7 @@ where
             None => modification,
             Some(val) => val.rmw(modification),
         };
-        self.map.insert(key, new_value);
+        self.insert(key, new_value);
     }
 
     fn contains(&mut self, key: &K) -> bool {
@@ -135,6 +157,7 @@ mod tests {
         InMemoryManagedCount, InMemoryManagedMap, InMemoryManagedValue,
     };
     use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
+    use std::rc::Rc;
 
     #[test]
     fn new_in_memory_managed_count_returns_0() {
@@ -170,11 +193,11 @@ mod tests {
     }
 
     #[test]
-    fn in_memory_managed_value_returns_some_then_returns_none() {
+    fn in_memory_managed_value_take_removes_value() {
         let mut value: InMemoryManagedValue<i32> = InMemoryManagedValue::new();
         value.set(42);
-        assert_eq!(value.get(), Some(42));
-        assert_eq!(value.get(), None);
+        assert_eq!(value.take(), Some(42));
+        assert_eq!(value.take(), None);
     }
 
     #[test]
@@ -182,7 +205,7 @@ mod tests {
         let mut value: InMemoryManagedValue<i32> = InMemoryManagedValue::new();
         value.set(32);
         value.rmw(10);
-        assert_eq!(value.get(), Some(42));
+        assert_eq!(value.take(), Some(42));
     }
 
     #[test]
@@ -192,14 +215,14 @@ mod tests {
     }
 
     #[test]
-    fn in_memory_managed_map_gets_some_then_gets_none() {
+    fn in_memory_managed_map_remove() {
         let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
 
         let key = String::from("something");
         let value = 42;
 
         map.insert(key.clone(), value);
-        assert_eq!(map.get(&key), Some(value));
+        assert_eq!(map.remove(&key), Some(value));
         assert_eq!(map.get(&key), None);
     }
 
@@ -213,6 +236,6 @@ mod tests {
 
         map.insert(key.clone(), value);
         map.rmw(key.clone(), modification);
-        assert_eq!(map.get(&key), Some(value + modification));
+        assert_eq!(map.get(&key), Some(Rc::new(value + modification)));
     }
 }

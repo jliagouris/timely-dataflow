@@ -176,7 +176,18 @@ impl<V: 'static + FasterValue> ManagedValue<V> for FASTERManagedValue<V> {
             &self.monotonic_serial_number,
         );
     }
-    fn get(&mut self) -> Option<V> {
+    fn get(&mut self) -> Option<Rc<V>> {
+        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(Rc::new(val)),
+            Err(_) => None,
+        };
+    }
+
+    fn take(&mut self) -> Option<V> {
         let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
@@ -234,7 +245,18 @@ where
         faster_upsert(&self.faster, &key, &value, &self.monotonic_serial_number);
     }
 
-    fn get(&mut self, key: &K) -> Option<V> {
+    fn get(&mut self, key: &K) -> Option<Rc<V>> {
+        let (status, recv) = faster_read(&self.faster, key, &self.monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(Rc::new(val)),
+            Err(_) => None,
+        };
+    }
+
+    fn remove(&mut self, key: &K) -> Option<V> {
         let (status, recv) = faster_read(&self.faster, key, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
@@ -255,7 +277,8 @@ where
     }
 
     fn contains(&mut self, key: &K) -> bool {
-        let (status, recv): (u8, Receiver<V>) = faster_read(&self.faster, key, &self.monotonic_serial_number);
+        let (status, _): (u8, Receiver<V>) =
+            faster_read(&self.faster, key, &self.monotonic_serial_number);
         return status == status::OK;
     }
 }
