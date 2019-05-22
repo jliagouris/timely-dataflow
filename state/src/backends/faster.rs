@@ -6,21 +6,56 @@ use std::cell::RefCell;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::mpsc::Receiver;
 
 pub struct FASTERBackend {
     faster: Rc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
 }
 
-impl FASTERBackend {
-    fn maybe_refresh(&self, monotonic_serial_number: u64) {
-        if monotonic_serial_number % 64 == 0 {
-            self.faster.refresh();
-            if monotonic_serial_number % 1600 == 0 {
-                self.faster.complete_pending(false);
-            }
+fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
+    if monotonic_serial_number % 64 == 0 {
+        faster.refresh();
+        if monotonic_serial_number % 1600 == 0 {
+            faster.complete_pending(false);
         }
     }
+}
+
+fn faster_upsert<K: FasterKey, V: FasterValue>(
+    faster: &Rc<FasterKv>,
+    key: &K,
+    value: &V,
+    monotonic_serial_number: &Rc<RefCell<u64>>,
+) {
+    let old_monotonic_serial_number = *monotonic_serial_number.borrow();
+    *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+    faster.upsert(key, value, old_monotonic_serial_number);
+    maybe_refresh_faster(faster, old_monotonic_serial_number);
+}
+
+fn faster_read<K: FasterKey, V: FasterValue>(
+    faster: &Rc<FasterKv>,
+    key: &K,
+    monotonic_serial_number: &Rc<RefCell<u64>>,
+) -> (u8, Receiver<V>) {
+    let old_monotonic_serial_number = *monotonic_serial_number.borrow();
+    *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+    let (status, recv) = faster.read(key, old_monotonic_serial_number);
+    maybe_refresh_faster(faster, old_monotonic_serial_number);
+    (status, recv)
+}
+
+fn faster_rmw<K: FasterKey, V: FasterValue>(
+    faster: &Rc<FasterKv>,
+    key: &K,
+    modification: &V,
+    monotonic_serial_number: &Rc<RefCell<u64>>,
+) {
+    let old_monotonic_serial_number = *monotonic_serial_number.borrow();
+    *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
+    faster.rmw(key, modification, old_monotonic_serial_number);
+    maybe_refresh_faster(faster, old_monotonic_serial_number);
 }
 
 impl StateBackend for FASTERBackend {
@@ -78,10 +113,12 @@ impl FASTERManagedCount {
 
 impl ManagedCount for FASTERManagedCount {
     fn decrease(&mut self, amount: i64) {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .rmw(&self.name, &-amount, old_monotonic_serial_number);
+        faster_rmw(
+            &self.faster,
+            &self.name,
+            &-amount,
+            &self.monotonic_serial_number,
+        );
     }
 
     fn increase(&mut self, amount: i64) {
@@ -92,9 +129,7 @@ impl ManagedCount for FASTERManagedCount {
     }
 
     fn get(&self) -> i64 {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        let (status, recv) = self.faster.read(&self.name, old_monotonic_serial_number);
+        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
         if status != status::OK {
             return 0;
         }
@@ -105,10 +140,12 @@ impl ManagedCount for FASTERManagedCount {
     }
 
     fn set(&mut self, value: i64) {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .upsert(&self.name, &value, old_monotonic_serial_number);
+        faster_upsert(
+            &self.faster,
+            &self.name,
+            &value,
+            &self.monotonic_serial_number,
+        );
     }
 }
 
@@ -132,15 +169,15 @@ impl<V: 'static + FasterValue> FASTERManagedValue<V> {
 
 impl<V: 'static + FasterValue> ManagedValue<V> for FASTERManagedValue<V> {
     fn set(&mut self, value: V) {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .upsert(&self.name, &value, old_monotonic_serial_number);
+        faster_upsert(
+            &self.faster,
+            &self.name,
+            &value,
+            &self.monotonic_serial_number,
+        );
     }
     fn get(&mut self) -> Option<V> {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        let (status, recv) = self.faster.read(&self.name, old_monotonic_serial_number);
+        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
         }
@@ -185,16 +222,11 @@ where
     V: 'static + FasterValue,
 {
     fn insert(&mut self, key: K, value: V) {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .upsert(&key, &value, old_monotonic_serial_number);
+        faster_upsert(&self.faster, &key, &value, &self.monotonic_serial_number);
     }
 
     fn get(&mut self, key: &K) -> Option<V> {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        let (status, recv) = self.faster.read(key, old_monotonic_serial_number);
+        let (status, recv) = faster_read(&self.faster, key, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
         }
