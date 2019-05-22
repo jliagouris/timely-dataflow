@@ -186,6 +186,15 @@ impl<V: 'static + FasterValue> ManagedValue<V> for FASTERManagedValue<V> {
             Err(_) => None,
         };
     }
+
+    fn rmw(&mut self, modification: V) {
+        faster_rmw(
+            &self.faster,
+            &self.name,
+            &modification,
+            &self.monotonic_serial_number,
+        );
+    }
 }
 
 pub struct FASTERManagedMap<K, V>
@@ -234,5 +243,14 @@ where
             Ok(val) => Some(val),
             Err(_) => None,
         };
+    }
+
+    fn rmw(&mut self, key: K, modification: V) {
+        faster_rmw(
+            &self.faster,
+            &key,
+            &modification,
+            &self.monotonic_serial_number,
+        );
     }
 }

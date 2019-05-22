@@ -11,6 +11,7 @@ pub trait ManagedCount {
 pub trait ManagedValue<V: 'static + FasterValue> {
     fn set(&mut self, value: V);
     fn get(&mut self) -> Option<V>;
+    fn rmw(&mut self, modification: V);
 }
 
 pub trait ManagedMap<K, V>
@@ -20,4 +21,5 @@ where
 {
     fn insert(&mut self, key: K, value: V);
     fn get(&mut self, key: &K) -> Option<V>;
+    fn rmw(&mut self, key: K, modification: V);
 }

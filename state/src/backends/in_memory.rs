@@ -74,6 +74,13 @@ impl<V: 'static + FasterValue> ManagedValue<V> for InMemoryManagedValue<V> {
     fn get(&mut self) -> Option<V> {
         self.value.take()
     }
+
+    fn rmw(&mut self, modification: V) {
+        self.value = match &self.value {
+            None => Some(modification),
+            Some(val) => Some(val.rmw(modification)),
+        }
+    }
 }
 
 pub struct InMemoryManagedMap<K, V>
@@ -107,6 +114,14 @@ where
 
     fn get(&mut self, key: &K) -> Option<V> {
         self.map.remove(key)
+    }
+
+    fn rmw(&mut self, key: K, modification: V) {
+        let new_value = match self.get(&key) {
+            None => modification,
+            Some(val) => val.rmw(modification),
+        };
+        self.map.insert(key, new_value);
     }
 }
 
@@ -159,6 +174,14 @@ mod tests {
     }
 
     #[test]
+    fn in_memory_managed_value_rmw() {
+        let mut value: InMemoryManagedValue<i32> = InMemoryManagedValue::new();
+        value.set(32);
+        value.rmw(10);
+        assert_eq!(value.get(), Some(42));
+    }
+
+    #[test]
     fn new_in_memory_managed_map_gets_none() {
         let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
         assert_eq!(map.get(&String::from("something")), None);
@@ -174,5 +197,18 @@ mod tests {
         map.insert(key.clone(), value);
         assert_eq!(map.get(&key), Some(value));
         assert_eq!(map.get(&key), None);
+    }
+
+    #[test]
+    fn in_memory_managed_map_rmw() {
+        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+
+        let key = String::from("something");
+        let value = 32;
+        let modification = 10;
+
+        map.insert(key.clone(), value);
+        map.rmw(key.clone(), modification);
+        assert_eq!(map.get(&key), Some(value + modification));
     }
 }
