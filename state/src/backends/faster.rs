@@ -253,4 +253,9 @@ where
             &self.monotonic_serial_number,
         );
     }
+
+    fn contains(&mut self, key: &K) -> bool {
+        let (status, recv): (u8, Receiver<V>) = faster_read(&self.faster, key, &self.monotonic_serial_number);
+        return status == status::OK;
+    }
 }

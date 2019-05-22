@@ -123,6 +123,10 @@ where
         };
         self.map.insert(key, new_value);
     }
+
+    fn contains(&mut self, key: &K) -> bool {
+        self.map.contains_key(key)
+    }
 }
 
 #[cfg(test)]

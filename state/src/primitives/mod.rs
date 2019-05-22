@@ -22,4 +22,5 @@ where
     fn insert(&mut self, key: K, value: V);
     fn get(&mut self, key: &K) -> Option<V>;
     fn rmw(&mut self, key: K, modification: V);
+    fn contains(&mut self, key: &K) -> bool;
 }
