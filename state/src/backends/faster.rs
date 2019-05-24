@@ -1,6 +1,9 @@
+extern crate bincode;
+
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::{StateBackend, StateBackendInfo};
 
+use bincode::serialize;
 use faster_rs::{status, FasterKey, FasterKv, FasterValue};
 use std::cell::RefCell;
 use std::hash::Hash;
@@ -215,7 +218,7 @@ where
 {
     faster: Rc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
-    name: String,
+    serialised_name: Vec<u8>,
     key: PhantomData<K>,
     value: PhantomData<V>,
 }
@@ -229,10 +232,17 @@ where
         FASTERManagedMap {
             faster,
             monotonic_serial_number,
-            name: name.to_owned(),
+            serialised_name: serialize(name).unwrap(),
             key: PhantomData,
             value: PhantomData,
         }
+    }
+
+    fn prefix_key(&self, key: &K) -> Vec<u8> {
+        let mut serialised_key = serialize(key).unwrap();
+        let mut prefixed_key = self.serialised_name.clone();
+        prefixed_key.append(&mut serialised_key);
+        prefixed_key
     }
 }
 
@@ -242,11 +252,19 @@ where
     V: 'static + FasterValue,
 {
     fn insert(&mut self, key: K, value: V) {
-        faster_upsert(&self.faster, &key, &value, &self.monotonic_serial_number);
+        let prefixed_key = self.prefix_key(&key);
+        faster_upsert(
+            &self.faster,
+            &prefixed_key,
+            &value,
+            &self.monotonic_serial_number,
+        );
     }
 
     fn get(&mut self, key: &K) -> Option<Rc<V>> {
-        let (status, recv) = faster_read(&self.faster, key, &self.monotonic_serial_number);
+        let prefixed_key = self.prefix_key(key);
+        let (status, recv) =
+            faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
         }
@@ -257,7 +275,9 @@ where
     }
 
     fn remove(&mut self, key: &K) -> Option<V> {
-        let (status, recv) = faster_read(&self.faster, key, &self.monotonic_serial_number);
+        let prefixed_key = self.prefix_key(key);
+        let (status, recv) =
+            faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
         }
