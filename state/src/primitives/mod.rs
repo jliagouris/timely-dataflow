@@ -11,7 +11,7 @@ pub trait ManagedCount {
 
 pub trait ManagedValue<V: 'static + FasterValue> {
     fn set(&mut self, value: V);
-    fn get(&mut self) -> Option<Rc<V>>;
+    fn get(&self) -> Option<Rc<V>>;
     fn take(&mut self) -> Option<V>;
     fn rmw(&mut self, modification: V);
 }
@@ -22,8 +22,8 @@ where
     V: 'static + FasterValue,
 {
     fn insert(&mut self, key: K, value: V);
-    fn get(&mut self, key: &K) -> Option<Rc<V>>;
+    fn get(&self, key: &K) -> Option<Rc<V>>;
     fn remove(&mut self, key: &K) -> Option<V>;
     fn rmw(&mut self, key: K, modification: V);
-    fn contains(&mut self, key: &K) -> bool;
+    fn contains(&self, key: &K) -> bool;
 }

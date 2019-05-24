@@ -73,7 +73,7 @@ impl<V: 'static + FasterValue> ManagedValue<V> for InMemoryManagedValue<V> {
         self.value.replace(Rc::new(value));
     }
 
-    fn get(&mut self) -> Option<Rc<V>> {
+    fn get(&self) -> Option<Rc<V>> {
         match &self.value {
             None => None,
             Some(val) => Some(Rc::clone(val)),
@@ -124,7 +124,7 @@ where
         self.map.insert(key, Rc::new(value));
     }
 
-    fn get(&mut self, key: &K) -> Option<Rc<V>> {
+    fn get(&self, key: &K) -> Option<Rc<V>> {
         match self.map.get(key) {
             None => None,
             Some(val) => Some(Rc::clone(val)),
@@ -146,7 +146,7 @@ where
         self.insert(key, new_value);
     }
 
-    fn contains(&mut self, key: &K) -> bool {
+    fn contains(&self, key: &K) -> bool {
         self.map.contains_key(key)
     }
 }
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn new_in_memory_managed_value_contains_none() {
-        let mut value: InMemoryManagedValue<i32> = InMemoryManagedValue::new();
+        let value: InMemoryManagedValue<i32> = InMemoryManagedValue::new();
         assert_eq!(value.get(), None);
     }
 
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn new_in_memory_managed_map_gets_none() {
-        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+        let map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
         assert_eq!(map.get(&String::from("something")), None);
     }
 

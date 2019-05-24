@@ -179,7 +179,7 @@ impl<V: 'static + FasterValue> ManagedValue<V> for FASTERManagedValue<V> {
             &self.monotonic_serial_number,
         );
     }
-    fn get(&mut self) -> Option<Rc<V>> {
+    fn get(&self) -> Option<Rc<V>> {
         let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
         if status != status::OK {
             return None;
@@ -261,7 +261,7 @@ where
         );
     }
 
-    fn get(&mut self, key: &K) -> Option<Rc<V>> {
+    fn get(&self, key: &K) -> Option<Rc<V>> {
         let prefixed_key = self.prefix_key(key);
         let (status, recv) =
             faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
@@ -297,7 +297,7 @@ where
         );
     }
 
-    fn contains(&mut self, key: &K) -> bool {
+    fn contains(&self, key: &K) -> bool {
         let prefixed_key = self.prefix_key(key);
         let (status, _): (u8, Receiver<V>) =
             faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
