@@ -288,17 +288,128 @@ where
     }
 
     fn rmw(&mut self, key: K, modification: V) {
+        let prefixed_key = self.prefix_key(&key);
         faster_rmw(
             &self.faster,
-            &key,
+            &prefixed_key,
             &modification,
             &self.monotonic_serial_number,
         );
     }
 
     fn contains(&mut self, key: &K) -> bool {
+        let prefixed_key = self.prefix_key(key);
         let (status, _): (u8, Receiver<V>) =
-            faster_read(&self.faster, key, &self.monotonic_serial_number);
+            faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
         return status == status::OK;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate faster_rs;
+    extern crate tempfile;
+
+    use crate::backends::faster::{FASTERManagedMap, FASTERManagedValue};
+    use crate::primitives::{ManagedMap, ManagedValue};
+    use faster_rs::FasterKv;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use tempfile::TempDir;
+
+    const TABLE_SIZE: u64 = 1 << 14;
+    const LOG_SIZE: u64 = 17179869184;
+
+    #[test]
+    fn faster_managed_value_set_get() {
+        let tmp_dir = TempDir::new().unwrap();
+        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
+        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let monotonic_serial_number = Rc::new(RefCell::new(1));
+
+        let value: u64 = 1337;
+
+        let mut managed_value = FASTERManagedValue::new(store, monotonic_serial_number, "test");
+        managed_value.set(value);
+        assert_eq!(managed_value.get(), Some(Rc::new(value)));
+    }
+
+    #[test]
+    fn faster_managed_value_rmw() {
+        let tmp_dir = TempDir::new().unwrap();
+        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
+        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let monotonic_serial_number = Rc::new(RefCell::new(1));
+
+        let value: u64 = 1337;
+        let modification: u64 = 10;
+
+        let mut managed_value = FASTERManagedValue::new(store, monotonic_serial_number, "test");
+        managed_value.set(value);
+        managed_value.rmw(modification);
+        assert_eq!(managed_value.get(), Some(Rc::new(value + modification)));
+    }
+
+    #[test]
+    fn faster_managed_map_insert_get() {
+        let tmp_dir = TempDir::new().unwrap();
+        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
+        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let monotonic_serial_number = Rc::new(RefCell::new(1));
+
+        let key: u64 = 1;
+        let value: u64 = 1337;
+
+        let mut managed_map = FASTERManagedMap::new(store, monotonic_serial_number, "test");
+        managed_map.insert(key, value);
+        assert_eq!(managed_map.get(&key), Some(Rc::new(value)));
+    }
+
+    #[test]
+    fn faster_managed_map_contains() {
+        let tmp_dir = TempDir::new().unwrap();
+        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
+        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let monotonic_serial_number = Rc::new(RefCell::new(1));
+
+        let key: u64 = 1;
+        let value: u64 = 1337;
+
+        let mut managed_map = FASTERManagedMap::new(store, monotonic_serial_number, "test");
+        managed_map.insert(key, value);
+        assert!(managed_map.contains(&key));
+    }
+
+    #[test]
+    fn faster_managed_map_rmw() {
+        let tmp_dir = TempDir::new().unwrap();
+        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
+        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let monotonic_serial_number = Rc::new(RefCell::new(1));
+
+        let key: u64 = 1;
+        let value: u64 = 1337;
+        let modification: u64 = 10;
+
+        let mut managed_map = FASTERManagedMap::new(store, monotonic_serial_number, "test");
+        managed_map.insert(key, value);
+        managed_map.rmw(key, modification);
+        assert_eq!(managed_map.get(&key), Some(Rc::new(value + modification)));
+    }
+
+    #[test]
+    fn faster_managed_map_remove_does_not_remove() {
+        let tmp_dir = TempDir::new().unwrap();
+        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
+        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let monotonic_serial_number = Rc::new(RefCell::new(1));
+
+        let key: u64 = 1;
+        let value: u64 = 1337;
+
+        let mut managed_map = FASTERManagedMap::new(store, monotonic_serial_number, "test");
+        managed_map.insert(key, value);
+        assert_eq!(managed_map.remove(&key), Some(value));
+        assert_eq!(managed_map.remove(&key), Some(value));
     }
 }
