@@ -7,7 +7,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 pub mod backends;
-mod primitives;
+pub mod primitives;
 
 #[derive(Clone)]
 pub struct StateBackendInfo {
