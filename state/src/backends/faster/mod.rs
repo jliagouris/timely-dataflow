@@ -24,6 +24,9 @@ fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
         if monotonic_serial_number % 1600 == 0 {
             faster.complete_pending(false);
+            if monotonic_serial_number % 3200 == 0 {
+                faster.checkpoint();
+            }
         }
     }
 }
