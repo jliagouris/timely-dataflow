@@ -411,7 +411,7 @@ impl<A: Allocate> Worker<A> {
         // TODO: check sizing
         let faster_kv = FasterKv::new(
             1 << 14,
-            4294967296, //4GB
+            4294967296 / 2, //2GB
             self.directory.path().to_str().unwrap().to_owned(),
         )
         .unwrap();
