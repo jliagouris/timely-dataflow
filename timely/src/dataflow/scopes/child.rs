@@ -13,7 +13,7 @@ use crate::progress::timestamp::Refines;
 use crate::order::Product;
 use crate::logging::TimelyLogger as Logger;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateBackendInfo, StateHandle};
+use crate::state::{StateBackend, StateHandle};
 
 use super::{ScopeParent, Scope};
 
@@ -33,11 +33,9 @@ where
     /// A copy of the child's parent scope.
     pub parent:   G,
     /// The log writer for this scope.
-    pub logging:  Option<Logger>,
-    /// The state backend for this code.
-    pub state_backend: Rc<RefCell<S>>,
-    /// The information required for spawning state backends
-    pub state_backend_info: StateBackendInfo,
+    logging:  Option<Logger>,
+    /// The state handle for this scope.
+    state_handle: StateHandle<S>,
 }
 
 impl<'a, G, T, S> Child<'a, G, T, S>
@@ -46,6 +44,18 @@ where
     T: Timestamp+Refines<G::Timestamp>,
     S: StateBackend
 {
+
+    /// New
+    pub fn new(subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>, parent: G, logging: Option<Logger>, state_handle: StateHandle<S>) -> Self {
+        Child {
+            subgraph,
+            parent,
+            logging,
+            state_handle,
+        }
+
+    }
+
     /// This worker's unique identifier.
     ///
     /// Ranges from `0` to `self.peers() - 1`.
@@ -133,8 +143,7 @@ where
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: self.logging.clone(),
-                state_backend: self.state_backend.clone(),
-                state_backend_info: self.state_backend_info.clone(),
+                state_handle: self.state_handle.create_sub_handle(&index.to_string())
             };
             func(&mut builder)
         };
@@ -145,14 +154,10 @@ where
         result
     }
 
-    fn get_state_handle(&self) -> StateHandle<S> {
-        let name = [&self.index().to_string(), "."].join("");
-        StateHandle::new(self.state_backend.clone(), &name)
+    fn get_state_handle(&self) -> &StateHandle<S> {
+        &self.state_handle
     }
 
-    fn get_state_backend_info(&self) -> &StateBackendInfo {
-        &self.state_backend_info
-    }
 }
 
 use crate::communication::Message;
@@ -168,8 +173,7 @@ where
             subgraph: self.subgraph,
             parent: self.parent.clone(),
             logging: self.logging.clone(),
-            state_backend: self.state_backend.clone(),
-            state_backend_info: self.state_backend_info.clone(),
+            state_handle: self.state_handle.clone(),
         }
     }
 }

@@ -35,10 +35,12 @@ impl ManagedCount for FASTERManagedCount {
     }
 
     fn increase(&mut self, amount: i64) {
-        let old_monotonic_serial_number = *self.monotonic_serial_number.borrow();
-        *self.monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-        self.faster
-            .rmw(&self.name, &amount, old_monotonic_serial_number);
+        faster_rmw(
+            &self.faster,
+            &self.name,
+            &amount,
+            &self.monotonic_serial_number,
+        );
     }
 
     fn get(&self) -> i64 {

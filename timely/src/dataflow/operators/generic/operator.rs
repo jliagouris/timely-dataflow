@@ -16,7 +16,6 @@ use crate::dataflow::operators::generic::OperatorInfo;
 use crate::dataflow::operators::generic::notificator::{Notificator, FrontierNotificator};
 use crate::state::{StateBackend, StateHandle};
 use std::rc::Rc;
-use std::cell::RefCell;
 
 /// Methods to construct generic streaming and blocking operators.
 pub trait Operator<G: Scope, D1: Data> {
@@ -650,7 +649,26 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
             &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
         P: ParallelizationContract<G::Timestamp, D1>
     {
-        self.unary_frontier_core(pact, name, constructor)
+        let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
+        let operator_info = builder.operator_info();
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = self.scope().get_state_handle().create_sub_handle(&name);
+
+        let mut input = builder.new_input(self, pact);
+        let (mut output, stream) = builder.new_output();
+
+        builder.build(move |mut capabilities| {
+            // `capabilities` should be a single-element vector.
+            let capability = capabilities.pop().unwrap();
+            let mut logic = constructor(capability, operator_info, state_handle);
+            move |frontiers| {
+                let mut input_handle = FrontieredInputHandle::new(&mut input, &frontiers[0]);
+                let mut output_handle = output.activate();
+                logic(&mut input_handle, &mut output_handle);
+            }
+        });
+
+        stream
     }
 
     fn unary_frontier_core<D2, B, L, P, S>(&self, pact: P, name: &str, constructor: B) -> Stream<G, D2>
@@ -665,8 +683,8 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = StateHandle::new(Rc::new(S::new()), &name);
 
         let mut input = builder.new_input(self, pact);
         let (mut output, stream) = builder.new_output();
@@ -691,8 +709,20 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
             &mut Notificator<G::Timestamp>,
             &StateHandle<G::StateBackend>)+'static,
         P: ParallelizationContract<G::Timestamp, D1>>
-    (&self, pact: P, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D2> {
-        self.unary_notify_core(pact, name, init, logic)
+    (&self, pact: P, name: &str, init: impl IntoIterator<Item=G::Timestamp>, mut logic: L) -> Stream<G, D2> {
+        self.unary_frontier(pact, name, move |capability, _info, state_handle| {
+            let mut notificator = FrontierNotificator::new();
+            for time in init {
+                notificator.notify_at(capability.delayed(&time));
+            }
+
+            let logging = self.scope().logging();
+            move |input, output| {
+                let frontier = &[input.frontier()];
+                let notificator = &mut Notificator::new(frontier, &mut notificator, &logging);
+                logic(&mut input.handle, output, notificator, &state_handle);
+            }
+        })
     }
 
     fn unary_notify_core<D2: Data,
@@ -727,7 +757,26 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
             &mut OutputHandle<G::Timestamp, D2, Tee<G::Timestamp, D2>>)+'static,
         P: ParallelizationContract<G::Timestamp, D1>
     {
-        self.unary_core(pact, name, constructor)
+        let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
+        let operator_info = builder.operator_info();
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = self.scope().get_state_handle().create_sub_handle(&name);
+
+        let mut input = builder.new_input(self, pact);
+        let (mut output, stream) = builder.new_output();
+        builder.set_notify(false);
+
+        builder.build(move |mut capabilities| {
+            // `capabilities` should be a single-element vector.
+            let capability = capabilities.pop().unwrap();
+            let mut logic = constructor(capability, operator_info, state_handle);
+            move |_frontiers| {
+                let mut output_handle = output.activate();
+                logic(&mut input, &mut output_handle);
+            }
+        });
+
+        stream
     }
 
     fn unary_core<D2, B, L, P, S>(&self, pact: P, name: &str, constructor: B) -> Stream<G, D2>
@@ -742,8 +791,8 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = StateHandle::new(Rc::new(S::new()), &name);
 
         let mut input = builder.new_input(self, pact);
         let (mut output, stream) = builder.new_output();
@@ -773,7 +822,28 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         P1: ParallelizationContract<G::Timestamp, D1>,
         P2: ParallelizationContract<G::Timestamp, D2>
     {
-        self.binary_frontier_core(other, pact1, pact2, name, constructor)
+        let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
+        let operator_info = builder.operator_info();
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = self.scope().get_state_handle().create_sub_handle(&name);
+
+        let mut input1 = builder.new_input(self, pact1);
+        let mut input2 = builder.new_input(other, pact2);
+        let (mut output, stream) = builder.new_output();
+
+        builder.build(move |mut capabilities| {
+            // `capabilities` should be a single-element vector.
+            let capability = capabilities.pop().unwrap();
+            let mut logic = constructor(capability, operator_info, state_handle);
+            move |frontiers| {
+                let mut input1_handle = FrontieredInputHandle::new(&mut input1, &frontiers[0]);
+                let mut input2_handle = FrontieredInputHandle::new(&mut input2, &frontiers[1]);
+                let mut output_handle = output.activate();
+                logic(&mut input1_handle, &mut input2_handle, &mut output_handle);
+            }
+        });
+
+        stream
     }
 
     fn binary_frontier_core<D2, D3, B, L, P1, P2, S>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
@@ -791,8 +861,8 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = StateHandle::new(Rc::new(S::new()), &name);
 
         let mut input1 = builder.new_input(self, pact1);
         let mut input2 = builder.new_input(other, pact2);
@@ -822,8 +892,20 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
             &StateHandle<G::StateBackend>)+'static,
         P1: ParallelizationContract<G::Timestamp, D1>,
         P2: ParallelizationContract<G::Timestamp, D2>>
-    (&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, init: impl IntoIterator<Item=G::Timestamp>, logic: L) -> Stream<G, D3> {
-        self.binary_notify_core(other, pact1, pact2, name, init, logic)
+    (&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, init: impl IntoIterator<Item=G::Timestamp>, mut logic: L) -> Stream<G, D3> {
+        self.binary_frontier(other, pact1, pact2, name, |capability, _info, state_handle| {
+            let mut notificator = FrontierNotificator::new();
+            for time in init {
+                notificator.notify_at(capability.delayed(&time));
+            }
+
+            let logging = self.scope().logging();
+            move |input1, input2, output| {
+                let frontiers = &[input1.frontier(), input2.frontier()];
+                let notificator = &mut Notificator::new(frontiers, &mut notificator, &logging);
+                logic(&mut input1.handle, &mut input2.handle, output, notificator, &state_handle);
+            }
+        })
     }
 
     fn binary_notify_core<D2: Data,
@@ -838,7 +920,7 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
               S: StateBackend>
             (&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, init: impl IntoIterator<Item=G::Timestamp>, mut logic: L) -> Stream<G, D3> {
 
-        self.binary_frontier_core(other, pact1, pact2, name, |capability, _info, state_handle: StateHandle<S>| {
+        self.binary_frontier_core(other, pact1, pact2, name, |capability, _info, state_handle| {
             let mut notificator = FrontierNotificator::new();
             for time in init {
                 notificator.notify_at(capability.delayed(&time));
@@ -865,7 +947,27 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         P1: ParallelizationContract<G::Timestamp, D1>,
         P2: ParallelizationContract<G::Timestamp, D2>
     {
-        self.binary_core(other, pact1, pact2, name, constructor)
+        let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
+        let operator_info = builder.operator_info();
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = self.scope().get_state_handle().create_sub_handle(&name);
+
+        let mut input1 = builder.new_input(self, pact1);
+        let mut input2 = builder.new_input(other, pact2);
+        let (mut output, stream) = builder.new_output();
+        builder.set_notify(false);
+
+        builder.build(move |mut capabilities| {
+            // `capabilities` should be a single-element vector.
+            let capability = capabilities.pop().unwrap();
+            let mut logic = constructor(capability, operator_info, state_handle);
+            move |_frontiers| {
+                let mut output_handle = output.activate();
+                logic(&mut input1, &mut input2, &mut output_handle);
+            }
+        });
+
+        stream
     }
 
     fn binary_core<D2, D3, B, L, P1, P2, S>(&self, other: &Stream<G, D2>, pact1: P1, pact2: P2, name: &str, constructor: B) -> Stream<G, D3>
@@ -883,8 +985,8 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
 
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
-        let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let name = [operator_info.global_id.to_string(), operator_info.local_id.to_string()].join(".");
+        let state_handle = StateHandle::new(Rc::new(S::new()), &name);
 
         let mut input1 = builder.new_input(self, pact1);
         let mut input2 = builder.new_input(other, pact2);

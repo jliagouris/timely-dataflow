@@ -5,7 +5,7 @@ use crate::order::Product;
 use crate::progress::timestamp::Refines;
 use crate::communication::Allocate;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateBackendInfo, StateHandle};
+use crate::state::{StateBackend, StateHandle};
 
 pub mod child;
 
@@ -102,10 +102,7 @@ pub trait Scope: ScopeParent {
         F: FnOnce(&mut Child<Self, T, Self::StateBackend>) -> R;
 
     /// A handle for accessing managed state
-    fn get_state_handle(&self) -> StateHandle<Self::StateBackend>;
-
-    /// The information required for spawning state backends
-    fn get_state_backend_info(&self) -> &StateBackendInfo;
+    fn get_state_handle(&self) -> &StateHandle<Self::StateBackend>;
 
     /// Creates a iterative dataflow subgraph.
     ///
