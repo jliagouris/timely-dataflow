@@ -25,7 +25,7 @@ fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
         println!("Calling checkpoint with token {}", check.token);
     }
     if monotonic_serial_number % 1600 == 0 {
-        faster.complete_pending(true);
+        faster.complete_pending(false);
     } else if monotonic_serial_number % 64 == 0 {
         faster.refresh();
     }
