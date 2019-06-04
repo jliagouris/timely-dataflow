@@ -19,7 +19,7 @@ impl StateBackendInfo {
     pub fn new(faster: FasterKv) -> Self {
         StateBackendInfo {
             faster: Rc::new(faster),
-            monotonic_serial_number: Rc::new(RefCell::new(1)),
+            monotonic_serial_number: Rc::new(RefCell::new(0)),
         }
     }
 }
