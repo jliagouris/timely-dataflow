@@ -415,6 +415,8 @@ impl<A: Allocate> Worker<A> {
             self.directory.path().to_str().unwrap().to_owned(),
         )
         .unwrap();
+        // Register with FASTER
+        faster_kv.start_session();
         let state_backend_info = StateBackendInfo::new(faster_kv);
 
         let result = {
