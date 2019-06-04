@@ -20,13 +20,13 @@ pub struct FASTERBackend {
 }
 
 fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
-    if monotonic_serial_number % 3200 == 0 {
+    if monotonic_serial_number % (1 << 14) == 0 {
         let check = faster.checkpoint().unwrap();
         println!("Calling checkpoint with token {}", check.token);
     }
-    if monotonic_serial_number % 1600 == 0 {
+    if monotonic_serial_number % (1 << 10) == 0 {
         faster.complete_pending(false);
-    } else if monotonic_serial_number % 64 == 0 {
+    } else if monotonic_serial_number % (1 << 5) == 0 {
         faster.refresh();
     }
 }
