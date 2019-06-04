@@ -25,7 +25,8 @@ fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
         if monotonic_serial_number % 1600 == 0 {
             faster.complete_pending(true);
             if monotonic_serial_number % 3200 == 0 {
-                faster.checkpoint();
+                let check = faster.checkpoint().unwrap();
+                println!("Calling checkpoint with token {}", check.token);
             }
         }
     }
