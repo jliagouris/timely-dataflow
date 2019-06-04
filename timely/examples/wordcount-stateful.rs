@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Map, Operator, Inspect, Probe};
 use timely::dataflow::channels::pact::Exchange;
-use timely::state::backends::InMemoryBackend;
+use timely::state::backends::{InMemoryBackend,FASTERBackend};
 
 fn main() {
     // initializes and runs a timely dataflow.
@@ -15,12 +15,12 @@ fn main() {
         let mut probe = ProbeHandle::new();
 
         // define a distribution function for strings.
-        let exchange = Exchange::new(|x: &(String, u64)| (x.0).len() as u64);
+        let exchange = Exchange::new(|x: &(String, i64)| (x.0).len() as u64);
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
+        worker.dataflow::<usize,_,_,FASTERBackend>(|scope| {
             input.to_stream(scope)
-                 .flat_map(|(text, diff): (String, u64)|
+                 .flat_map(|(text, diff): (String, i64)|
                     text.split_whitespace()
                         .map(move |word| (word.to_owned(), diff))
                         .collect::<Vec<_>>()
@@ -50,12 +50,12 @@ fn main() {
 
                         queues.retain(|_key, val| !val.is_empty());
                     }})
-                 .inspect(|x| println!("seen: {:?}", x))
+                 //.inspect(|x| println!("seen: {:?}", x))
                  .probe_with(&mut probe);
         });
 
         // introduce data and watch!
-        for round in 0..10 {
+        for round in 0.. {
             input.send(("round".to_owned(), 1));
             input.advance_to(round + 1);
             while probe.less_than(input.time()) {
