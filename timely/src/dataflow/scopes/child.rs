@@ -59,7 +59,7 @@ where
         */
         let faster_kv = Rc::new(FasterKv::new(
             1 << 15,
-            4294967296 / 2, //2GB
+            4294967296, //4GB
             state_directory.to_string(),
         ).unwrap());
         let state_backend_info = StateBackendInfo::new(&faster_kv);
