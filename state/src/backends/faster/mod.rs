@@ -1,5 +1,5 @@
 use managed_count::FASTERManagedCount;
-use managed_map::FASTERManagedMap;
+pub use managed_map::FASTERManagedMap;
 use managed_value::FASTERManagedValue;
 
 mod managed_count;
