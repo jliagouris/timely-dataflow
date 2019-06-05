@@ -50,16 +50,9 @@ where
     /// New
     pub fn new(subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>, parent: G, logging: Option<Logger>, state_directory: &str) -> Self {
         // TODO: check sizing
-        /*
         let faster_kv = Rc::new(FasterKv::new(
             1 << 15,
-            4294967296 / 2, //2GB
-            directory.path().to_str().unwrap().to_owned(),
-        ).unwrap());
-        */
-        let faster_kv = Rc::new(FasterKv::new(
-            1 << 15,
-            4294967296, //4GB
+            5905580032, //5.5GB
             state_directory.to_string(),
         ).unwrap());
         let state_backend_info = StateBackendInfo::new(&faster_kv);
