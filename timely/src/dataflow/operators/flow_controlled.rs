@@ -73,7 +73,8 @@ pub struct IteratorSourceInput<T: Clone, D: Data, DI: IntoIterator<Item=D>, I: I
 /// }
 /// ```
 pub fn iterator_source<
-    G: Scope,
+    'a,
+    G: Scope<'a>,
     D: Data,
     DI: IntoIterator<Item=D>,
     I: IntoIterator<Item=(G::Timestamp, DI)>,
@@ -82,7 +83,7 @@ pub fn iterator_source<
         name: &str,
         mut input_f: F,
         probe: Handle<G::Timestamp>,
-        ) -> Stream<G, D> where G::Timestamp: TotalOrder {
+        ) -> Stream<'a, G, D> where G::Timestamp: TotalOrder {
 
     let mut target = Default::default();
     source(scope, name, |cap, info| {

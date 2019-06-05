@@ -6,7 +6,7 @@ use crate::dataflow::{Scope, Stream};
 use crate::Data;
 
 /// Extension trait for `Stream`.
-pub trait Branch<S: Scope, D: Data> {
+pub trait Branch<'a, S: Scope<'a>, D: Data> {
     /// Takes one input stream and splits it into two output streams.
     /// For each record, the supplied closure is called with a reference to
     /// the data and its time. If it returns true, the record will be sent
@@ -31,14 +31,14 @@ pub trait Branch<S: Scope, D: Data> {
     fn branch(
         &self,
         condition: impl Fn(&S::Timestamp, &D) -> bool + 'static,
-    ) -> (Stream<S, D>, Stream<S, D>);
+    ) -> (Stream<'a, S, D>, Stream<'a, S, D>);
 }
 
-impl<S: Scope, D: Data> Branch<S, D> for Stream<S, D> {
+impl<'a, S: Scope<'a>, D: Data> Branch<'a, S, D> for Stream<'a, S, D> {
     fn branch(
         &self,
         condition: impl Fn(&S::Timestamp, &D) -> bool + 'static,
-    ) -> (Stream<S, D>, Stream<S, D>) {
+    ) -> (Stream<'a, S, D>, Stream<'a, S, D>) {
         let mut builder = OperatorBuilder::new("Branch".to_owned(), self.scope());
 
         let mut input = builder.new_input(self, Pipeline);
@@ -71,7 +71,7 @@ impl<S: Scope, D: Data> Branch<S, D> for Stream<S, D> {
 }
 
 /// Extension trait for `Stream`.
-pub trait BranchWhen<S: Scope, D: Data> {
+pub trait BranchWhen<'a, S: Scope<'a>, D: Data> {
     /// Takes one input stream and splits it into two output streams.
     /// For each time, the supplied closure is called. If it returns true,
     /// the records for that will be sent to the second returned stream, otherwise
@@ -94,14 +94,14 @@ pub trait BranchWhen<S: Scope, D: Data> {
     fn branch_when(
         &self,
         condition: impl Fn(&S::Timestamp) -> bool + 'static,
-    ) -> (Stream<S, D>, Stream<S, D>);
+    ) -> (Stream<'a, S, D>, Stream<'a, S, D>);
 }
 
-impl<S: Scope, D: Data> BranchWhen<S, D> for Stream<S, D> {
+impl<'a, S: Scope<'a>, D: Data> BranchWhen<'a, S, D> for Stream<'a, S, D> {
     fn branch_when(
         &self,
         condition: impl Fn(&S::Timestamp) -> bool + 'static,
-    ) -> (Stream<S, D>, Stream<S, D>) {
+    ) -> (Stream<'a, S, D>, Stream<'a, S, D>) {
         let mut builder = OperatorBuilder::new("Branch".to_owned(), self.scope());
 
         let mut input = builder.new_input(self, Pipeline);

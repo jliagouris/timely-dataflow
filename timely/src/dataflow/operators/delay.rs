@@ -9,7 +9,7 @@ use crate::dataflow::{Stream, Scope};
 use crate::dataflow::operators::generic::operator::Operator;
 
 /// Methods to advance the timestamps of records or batches of records.
-pub trait Delay<G: Scope, D: Data> {
+pub trait Delay<'a, G: Scope<'a>, D: Data> {
 
     /// Advances the timestamp of records using a supplied function.
     ///
@@ -94,8 +94,8 @@ pub trait Delay<G: Scope, D: Data> {
     fn delay_batch(&self, func: impl Fn(&G::Timestamp)->G::Timestamp+'static) -> Self;
 }
 
-impl<G: Scope, D: Data> Delay<G, D> for Stream<G, D> {
-    fn delay(&self, func: impl Fn(&D, &G::Timestamp)->G::Timestamp+'static) -> Stream<G, D> {
+impl<'a, G: Scope<'a>, D: Data> Delay<'a, G, D> for Stream<'a, G, D> {
+    fn delay(&self, func: impl Fn(&D, &G::Timestamp)->G::Timestamp+'static) -> Stream<'a, G, D> {
         let mut elements = HashMap::new();
         let mut vector = Vec::new();
         self.unary_notify(Pipeline, "Delay", vec![], move |input, output, notificator, _state_handle| {

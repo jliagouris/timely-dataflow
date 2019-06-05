@@ -21,7 +21,7 @@ use crate::dataflow::operators::capability::mint as mint_capability;
 use crate::dataflow::{Stream, Scope};
 
 /// Create a new `Stream` and `Handle` through which to supply input.
-pub trait UnorderedInput<G: Scope> {
+pub trait UnorderedInput<'a, G: Scope<'a>> {
     /// Create a new capability-based `Stream` and `Handle` through which to supply input. This
     /// input supports multiple open epochs (timestamps) at the same time.
     ///
@@ -76,12 +76,12 @@ pub trait UnorderedInput<G: Scope> {
     ///     assert_eq!(extract[i], (i, vec![i]));
     /// }
     /// ```
-    fn new_unordered_input<D:Data>(&mut self) -> ((UnorderedHandle<G::Timestamp, D>, ActivateCapability<G::Timestamp>), Stream<G, D>);
+    fn new_unordered_input<D:Data>(&mut self) -> ((UnorderedHandle<G::Timestamp, D>, ActivateCapability<G::Timestamp>), Stream<'a, G, D>);
 }
 
 
-impl<G: Scope> UnorderedInput<G> for G {
-    fn new_unordered_input<D:Data>(&mut self) -> ((UnorderedHandle<G::Timestamp, D>, ActivateCapability<G::Timestamp>), Stream<G, D>) {
+impl<'a, G: Scope<'a>> UnorderedInput<'a, G> for G {
+    fn new_unordered_input<D:Data>(&mut self) -> ((UnorderedHandle<G::Timestamp, D>, ActivateCapability<G::Timestamp>), Stream<'a, G, D>) {
 
         let (output, registrar) = Tee::<G::Timestamp, D>::new();
         let internal = Rc::new(RefCell::new(ChangeBatch::new()));

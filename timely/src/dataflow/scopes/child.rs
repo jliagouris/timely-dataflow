@@ -13,7 +13,9 @@ use crate::progress::timestamp::Refines;
 use crate::order::Product;
 use crate::logging::TimelyLogger as Logger;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateBackendInfo, StateHandle};
+use crate::state::{StateBackend, StateHandle};
+use faster_rs::FasterKv;
+use std::marker::PhantomData;
 
 use super::{ScopeParent, Scope};
 
@@ -26,7 +28,7 @@ pub struct Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend,
+    S: StateBackend<'a>,
 {
     /// The subgraph under assembly.
     pub subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>,
@@ -34,17 +36,22 @@ where
     pub parent:   G,
     /// The log writer for this scope.
     pub logging:  Option<Logger>,
+    pub faster: &'a FasterKv,
+    pub monotonic_serial_number: Rc<RefCell<u64>>,
+    phantom: PhantomData<S>,
+    /*
     /// The state backend for this code.
     pub state_backend: Rc<RefCell<S>>,
     /// The information required for spawning state backends
-    pub state_backend_info: StateBackendInfo,
+    pub state_backend_info: StateBackendInfo<'static>,
+    */
 }
 
 impl<'a, G, T, S> Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend
+    S: StateBackend<'a>,
 {
     /// This worker's unique identifier.
     ///
@@ -58,7 +65,7 @@ impl<'a, G, T, S> AsWorker for Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend
+    S: StateBackend<'a>
 {
     fn index(&self) -> usize { self.parent.index() }
     fn peers(&self) -> usize { self.parent.peers() }
@@ -80,7 +87,7 @@ impl<'a, G, T, S> Scheduler for Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend
+    S: StateBackend<'a>,
 {
     fn activations(&self) -> Rc<RefCell<Activations>> {
         self.parent.activations()
@@ -91,16 +98,16 @@ impl<'a, G, T, S> ScopeParent for Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend
+    S: StateBackend<'a>,
 {
     type Timestamp = T;
 }
 
-impl<'a, G, T, S> Scope for Child<'a, G, T, S>
+impl<'a, G, T, S> Scope<'a> for Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend
+    S: StateBackend<'a>,
 {
     type StateBackend = S;
 
@@ -133,8 +140,9 @@ where
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: self.logging.clone(),
-                state_backend: self.state_backend.clone(),
-                state_backend_info: self.state_backend_info.clone(),
+                faster: self.faster,
+                monotonic_serial_number: Rc::clone(&self.monontonic_serial_number),
+                phantom: PhantomData
             };
             func(&mut builder)
         };
@@ -145,14 +153,11 @@ where
         result
     }
 
-    fn get_state_handle(&self) -> StateHandle<S> {
-        let name = [&self.index().to_string(), "."].join("");
-        StateHandle::new(self.state_backend.clone(), &name)
+    fn get_state_handle(&self) -> StateHandle<'a, Self::StateBackend> {
+        let name = [&self.index().to_string(), ".".to_string()].join("");
+        StateHandle::new(S::new(self.faster, Rc::clone(&self.monotonic_serial_number)), &name)
     }
 
-    fn get_state_backend_info(&self) -> &StateBackendInfo {
-        &self.state_backend_info
-    }
 }
 
 use crate::communication::Message;
@@ -161,15 +166,15 @@ impl<'a, G, T, S> Clone for Child<'a, G, T, S>
 where
     G: ScopeParent,
     T: Timestamp+Refines<G::Timestamp>,
-    S: StateBackend
-{
+    S: StateBackend<'a> {
     fn clone(&self) -> Self {
         Child {
             subgraph: self.subgraph,
             parent: self.parent.clone(),
             logging: self.logging.clone(),
-            state_backend: self.state_backend.clone(),
-            state_backend_info: self.state_backend_info.clone(),
+            faster: self.faster,
+            monotonic_serial_number: Rc::clone(&self.monontonic_serial_number),
+            phantom: PhantomData,
         }
     }
 }

@@ -51,13 +51,13 @@ use super::event::EventIterator;
 /// Replay a capture stream into a scope with the same timestamp.
 pub trait Replay<T: Timestamp, D: Data> {
     /// Replays `self` into the provided scope, as a `Stream<S, D>`.
-    fn replay_into<S: Scope<Timestamp=T>>(self, scope: &mut S) -> Stream<S, D>;
+    fn replay_into<'a, S: Scope<'a, Timestamp=T>>(self, scope: &mut S) -> Stream<'a, S, D>;
 }
 
 impl<T: Timestamp, D: Data, I> Replay<T, D> for I
 where I : IntoIterator,
       <I as IntoIterator>::Item: EventIterator<T, D>+'static {
-    fn replay_into<S: Scope<Timestamp=T>>(self, scope: &mut S) -> Stream<S, D>{
+    fn replay_into<'a, S: Scope<'a, Timestamp=T>>(self, scope: &mut S) -> Stream<'a, S, D>{
 
         let mut builder = OperatorBuilder::new("Replay".to_owned(), scope.clone());
 

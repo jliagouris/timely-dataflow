@@ -38,7 +38,7 @@ use crate::dataflow::scopes::{Child, ScopeParent};
 use crate::dataflow::operators::delay::Delay;
 
 /// Extension trait to move a `Stream` into a child of its current `Scope`.
-pub trait Enter<G: Scope, T: Timestamp+Refines<G::Timestamp>, D: Data> {
+pub trait Enter<'a, G: Scope<'a>, T: Timestamp+Refines<G::Timestamp>, D: Data> {
     /// Moves the `Stream` argument into a child of its current `Scope`.
     ///
     /// # Examples
@@ -53,13 +53,15 @@ pub trait Enter<G: Scope, T: Timestamp+Refines<G::Timestamp>, D: Data> {
     ///     });
     /// });
     /// ```
-    fn enter<'a>(&self, _: &Child<'a, G, T, G::StateBackend>) -> Stream<Child<'a, G, T, G::StateBackend>, D>;
+    fn enter<'b>(&self, _: &Child<'b, G, T, G::StateBackend>) -> Stream<'a, Child<'b, G, T, G::StateBackend>, D>
+    where
+        'a:'b;
 }
 
 use crate::dataflow::scopes::child::Iterative;
 
 /// Extension trait to move a `Stream` into a child of its current `Scope` setting the timestamp for each element.
-pub trait EnterAt<G: Scope, T: Timestamp, D: Data> {
+pub trait EnterAt<'a, G: Scope<'a>, T: Timestamp, D: Data> {
     /// Moves the `Stream` argument into a child of its current `Scope` setting the timestamp for each element by `initial`.
     ///
     /// # Examples
@@ -74,18 +76,26 @@ pub trait EnterAt<G: Scope, T: Timestamp, D: Data> {
     ///     });
     /// });
     /// ```
-    fn enter_at<'a, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'a, G, T, G::StateBackend>, initial: F) -> Stream<Iterative<'a, G, T, G::StateBackend>, D> ;
+    fn enter_at<'b, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'b, G, T, G::StateBackend>, initial: F) -> Stream<'a, Iterative<'b, G, T, G::StateBackend>, D>
+    where
+        'a:'b;
 }
 
-impl<G: Scope, T: Timestamp, D: Data, E: Enter<G, Product<<G as ScopeParent>::Timestamp, T>, D>> EnterAt<G, T, D> for E {
-    fn enter_at<'a, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'a, G, T, G::StateBackend>, initial: F) ->
-        Stream<Iterative<'a, G, T, G::StateBackend>, D> {
+impl<'a, G: Scope<'a>, T: Timestamp, D: Data, E: Enter<'a, G, Product<<G as ScopeParent>::Timestamp, T>, D>> EnterAt<'a, G, T, D> for E {
+    fn enter_at<'b, F:Fn(&D)->T+'static>(&self, scope: &Iterative<'b, G, T, G::StateBackend>, initial: F) ->
+        Stream<'a, Iterative<'b, G, T, G::StateBackend>, D>
+    where
+        'a:'b
+    {
             self.enter(scope).delay(move |datum, time| Product::new(time.clone().to_outer(), initial(datum)))
     }
 }
 
-impl<G: Scope, T: Timestamp+Refines<G::Timestamp>, D: Data> Enter<G, T, D> for Stream<G, D> {
-    fn enter<'a>(&self, scope: &Child<'a, G, T, G::StateBackend>) -> Stream<Child<'a, G, T, G::StateBackend>, D> {
+impl<'a, G: Scope<'a>, T: Timestamp+Refines<G::Timestamp>, D: Data> Enter<'a, G, T, D> for Stream<'a, G, D> {
+    fn enter<'b>(&self, scope: &Child<'b, G, T, G::StateBackend>) -> Stream<'a, Child<'b, G, T, G::StateBackend>, D>
+        where
+            'a:'b
+    {
 
         let (targets, registrar) = Tee::<T, D>::new();
         let ingress = IngressNub { targets: Counter::new(targets), phantom: ::std::marker::PhantomData };
@@ -100,7 +110,7 @@ impl<G: Scope, T: Timestamp+Refines<G::Timestamp>, D: Data> Enter<G, T, D> for S
 }
 
 /// Extension trait to move a `Stream` to the parent of its current `Scope`.
-pub trait Leave<G: Scope, D: Data> {
+pub trait Leave<'a, G: Scope<'a>, D: Data> {
     /// Moves a `Stream` to the parent of its current `Scope`.
     ///
     /// # Examples
@@ -115,11 +125,14 @@ pub trait Leave<G: Scope, D: Data> {
     ///     });
     /// });
     /// ```
-    fn leave(&self) -> Stream<G, D>;
+    fn leave(&self) -> Stream<'a, G, D>;
 }
 
-impl<'a, G: Scope, D: Data, T: Timestamp+Refines<G::Timestamp>> Leave<G, D> for Stream<Child<'a, G, T, G::StateBackend>, D> {
-    fn leave(&self) -> Stream<G, D> {
+impl<'a, 'b, G: Scope<'a>, D: Data, T: Timestamp+Refines<G::Timestamp>> Leave<'a, G, D> for Stream<'a, Child<'b, G, T, G::StateBackend>, D>
+where
+    'a: 'b
+{
+    fn leave(&self) -> Stream<'a, G, D> {
 
         let scope = self.scope();
 

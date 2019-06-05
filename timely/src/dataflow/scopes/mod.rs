@@ -5,7 +5,7 @@ use crate::order::Product;
 use crate::progress::timestamp::Refines;
 use crate::communication::Allocate;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateBackendInfo, StateHandle};
+use crate::state::{StateBackend, StateHandle};
 
 pub mod child;
 
@@ -27,9 +27,9 @@ impl<A: Allocate> ScopeParent for crate::worker::Worker<A> {
 /// Importantly, this is often a *shared* object, backed by a `Rc<RefCell<>>` wrapper. Each method
 /// takes a shared reference, but can be thought of as first calling .clone() and then calling the
 /// method. Each method does not hold the `RefCell`'s borrow, and should prevent accidental panics.
-pub trait Scope: ScopeParent {
+pub trait Scope<'a>: ScopeParent {
     /// The state backend associated with this scope.
-    type StateBackend: StateBackend;
+    type StateBackend: StateBackend<'a>;
 
     /// A useful name describing the scope.
     fn name(&self) -> String;
@@ -102,10 +102,7 @@ pub trait Scope: ScopeParent {
         F: FnOnce(&mut Child<Self, T, Self::StateBackend>) -> R;
 
     /// A handle for accessing managed state
-    fn get_state_handle(&self) -> StateHandle<Self::StateBackend>;
-
-    /// The information required for spawning state backends
-    fn get_state_backend_info(&self) -> &StateBackendInfo;
+    fn get_state_handle(&self) -> StateHandle<'a, Self::StateBackend>;
 
     /// Creates a iterative dataflow subgraph.
     ///

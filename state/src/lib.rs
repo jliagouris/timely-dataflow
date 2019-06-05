@@ -2,32 +2,21 @@ extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use faster_rs::{FasterKey, FasterKv, FasterValue};
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 use std::hash::Hash;
 use std::rc::Rc;
+use std::marker::PhantomData;
 
 pub mod backends;
 pub mod primitives;
 
-#[derive(Clone)]
-pub struct StateBackendInfo {
-    faster: Rc<FasterKv>,
-    monotonic_serial_number: Rc<RefCell<u64>>,
-}
+pub trait StateBackend<'a> {
+    type ManagedCounttt;
 
-impl StateBackendInfo {
-    pub fn new(faster: FasterKv) -> Self {
-        StateBackendInfo {
-            faster: Rc::new(faster),
-            monotonic_serial_number: Rc::new(RefCell::new(1)),
-        }
-    }
-}
+    fn new(faster: &'a FasterKv, monotonic_serial_number: Rc<RefCell<u64>>) -> Self;
 
-pub trait StateBackend: 'static {
-    fn new(info: &StateBackendInfo) -> Self;
-
-    fn get_managed_count(&self, name: &str) -> Box<ManagedCount>;
+    //fn get_managed_count(&self, name: &str) -> Rc<ManagedCount>;
+    fn get_managed_count(&self, name: &str) -> Self::ManagedCounttt;
     fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>>;
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
@@ -35,23 +24,23 @@ pub trait StateBackend: 'static {
         V: 'static + FasterValue;
 }
 
-pub struct StateHandle<S: StateBackend> {
-    backend: Rc<RefCell<S>>,
+pub struct StateHandle<'a, S: StateBackend<'a>> {
+    backend: &'a S,
     name: String,
 }
 
-impl<S: StateBackend> StateHandle<S> {
-    pub fn new(backend: Rc<RefCell<S>>, name: &str) -> Self {
+impl<'a, S: StateBackend<'a>> StateHandle<'a, S> {
+    pub fn new(backend: &'a S, name: &str) -> Self {
         StateHandle {
             backend,
             name: name.to_owned(),
         }
     }
 
-    pub fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {
+    pub fn get_managed_count(&self, name: &str) ->  <S as StateBackend<'a>>::ManagedCounttt {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        self.backend.borrow().get_managed_count(&physical_name)
+        self.backend.get_managed_count(&physical_name)
     }
 
     pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
@@ -61,12 +50,12 @@ impl<S: StateBackend> StateHandle<S> {
     {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        self.backend.borrow().get_managed_map(&physical_name)
+        self.backend.get_managed_map(&physical_name)
     }
 
     pub fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        self.backend.borrow().get_managed_value(&physical_name)
+        self.backend.get_managed_value(&physical_name)
     }
 }

@@ -9,8 +9,8 @@ pub trait Queue {
     fn queue(&self) -> Self;
 }
 
-impl<G: Scope, D: Data> Queue for Stream<G, D> {
-    fn queue(&self) -> Stream<G, D> {
+impl<'a, G: Scope<'a>, D: Data> Queue for Stream<'a, G, D> {
+    fn queue(&self) -> Stream<'a, G, D> {
         let mut elements = HashMap::new();
         self.unary_notify(Pipeline, "Queue", vec![], move |input, output, notificator| {
             while let Some((time, data)) = input.next() {

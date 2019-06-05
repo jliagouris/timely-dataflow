@@ -7,7 +7,7 @@ use crate::dataflow::channels::pact::Pipeline;
 use crate::dataflow::operators::generic::operator::Operator;
 
 /// Extension trait for reclocking a stream.
-pub trait Reclock<S: Scope, D: Data> {
+pub trait Reclock<'a, S: Scope<'a>, D: Data> {
     /// Delays records until an input is observed on the `clock` input.
     ///
     /// The source stream is buffered until a record is seen on the clock input,
@@ -45,11 +45,11 @@ pub trait Reclock<S: Scope, D: Data> {
     /// assert_eq!(extracted[1], (5, vec![4,5]));
     /// assert_eq!(extracted[2], (8, vec![6,7,8]));
     /// ```
-    fn reclock(&self, clock: &Stream<S, ()>) -> Stream<S, D>;
+    fn reclock(&self, clock: &Stream<'a, S, ()>) -> Stream<'a, S, D>;
 }
 
-impl<S: Scope, D: Data> Reclock<S, D> for Stream<S, D> {
-    fn reclock(&self, clock: &Stream<S, ()>) -> Stream<S, D> {
+impl<'a, S: Scope<'a>, D: Data> Reclock<'a, S, D> for Stream<'a, S, D> {
+    fn reclock(&self, clock: &Stream<'a, S, ()>) -> Stream<'a, S, D> {
 
         let mut stash = vec![];
 

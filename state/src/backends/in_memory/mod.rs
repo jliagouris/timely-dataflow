@@ -7,19 +7,24 @@ mod managed_map;
 mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use crate::{StateBackend, StateBackendInfo};
-use faster_rs::{FasterKey, FasterValue};
+use crate::StateBackend;
+use faster_rs::{FasterKey, FasterValue, FasterKv};
 use std::hash::Hash;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct InMemoryBackend {}
 
-impl StateBackend for InMemoryBackend {
-    fn new(_: &StateBackendInfo) -> Self {
+impl<'a> StateBackend<'a> for InMemoryBackend {
+    type ManagedCounttt = InMemoryManagedCount;
+
+    fn new(faster: &'a FasterKv, monotonic_serial_number: Rc<RefCell<u64>>) -> Self {
         InMemoryBackend {}
     }
 
-    fn get_managed_count(&self, _name: &str) -> Box<ManagedCount> {
-        Box::new(InMemoryManagedCount::new())
+    fn get_managed_count(&self, _name: &str) -> InMemoryManagedCount {
+        unimplemented!();
+        //Box::new(InMemoryManagedCount::new())
     }
 
     fn get_managed_value<V: 'static + FasterValue>(&self, _name: &str) -> Box<ManagedValue<V>> {

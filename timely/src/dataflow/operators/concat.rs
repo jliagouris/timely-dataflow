@@ -6,7 +6,7 @@ use crate::dataflow::channels::pact::Pipeline;
 use crate::dataflow::{Stream, Scope};
 
 /// Merge the contents of two streams.
-pub trait Concat<G: Scope, D: Data> {
+pub trait Concat<'a, G: Scope<'a>, D: Data> {
     /// Merge the contents of two streams.
     ///
     /// # Examples
@@ -20,17 +20,17 @@ pub trait Concat<G: Scope, D: Data> {
     ///           .inspect(|x| println!("seen: {:?}", x));
     /// });
     /// ```
-    fn concat(&self, _: &Stream<G, D>) -> Stream<G, D>;
+    fn concat(&self, _: &Stream<'a, G, D>) -> Stream<'a, G, D>;
 }
 
-impl<G: Scope, D: Data> Concat<G, D> for Stream<G, D> {
-    fn concat(&self, other: &Stream<G, D>) -> Stream<G, D> {
+impl<'a, G: Scope<'a>, D: Data> Concat<'a, G, D> for Stream<'a, G, D> {
+    fn concat(&self, other: &Stream<'a, G, D>) -> Stream<'a, G, D> {
         self.scope().concatenate(vec![self.clone(), other.clone()])
     }
 }
 
 /// Merge the contents of multiple streams.
-pub trait Concatenate<G: Scope, D: Data> {
+pub trait Concatenate<'a, G: Scope<'a>, D: Data> {
     /// Merge the contents of multiple streams.
     ///
     /// # Examples
@@ -47,25 +47,25 @@ pub trait Concatenate<G: Scope, D: Data> {
     ///          .inspect(|x| println!("seen: {:?}", x));
     /// });
     /// ```
-    fn concatenate<I>(&self, sources: I) -> Stream<G, D>
+    fn concatenate<I>(&self, sources: I) -> Stream<'a, G, D>
     where
-        I: IntoIterator<Item=Stream<G, D>>;
+        I: IntoIterator<Item=Stream<'a, G, D>>;
 }
 
-impl<G: Scope, D: Data> Concatenate<G, D> for Stream<G, D> {
-    fn concatenate<I>(&self, sources: I) -> Stream<G, D>
+impl<'a, G: Scope<'a>, D: Data> Concatenate<'a, G, D> for Stream<'a, G, D> {
+    fn concatenate<I>(&self, sources: I) -> Stream<'a, G, D>
     where
-        I: IntoIterator<Item=Stream<G, D>>
+        I: IntoIterator<Item=Stream<'a, G, D>>
     {
         let clone = self.clone();
         self.scope().concatenate(Some(clone).into_iter().chain(sources))
     }
 }
 
-impl<G: Scope, D: Data> Concatenate<G, D> for G {
-    fn concatenate<I>(&self, sources: I) -> Stream<G, D>
+impl<'a, G: Scope<'a>, D: Data> Concatenate<'a, G, D> for G {
+    fn concatenate<I>(&self, sources: I) -> Stream<'a, G, D>
     where
-        I: IntoIterator<Item=Stream<G, D>>
+        I: IntoIterator<Item=Stream<'a, G, D>>
     {
 
         // create an operator builder.

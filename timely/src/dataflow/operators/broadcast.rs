@@ -35,8 +35,8 @@ pub trait Broadcast<D: ExchangeData> {
     fn broadcast(&self) -> Self;
 }
 
-impl<G: Scope, D: ExchangeData> Broadcast<D> for Stream<G, D> {
-    fn broadcast(&self) -> Stream<G, D> {
+impl<'a, G: Scope<'a>, D: ExchangeData> Broadcast<D> for Stream<'a, G, D> {
+    fn broadcast(&self) -> Stream<'a, G, D> {
 
         // NOTE: Simplified implementation due to underlying motion
         // in timely dataflow internals. Optimize once they have

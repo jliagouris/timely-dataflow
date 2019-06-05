@@ -17,7 +17,7 @@ use crate::dataflow::channels::pact::Exchange;
 /// is some total order on times respecting the total order (updates may be interleaved).
 
 /// Provides the `state_machine` method.
-pub trait StateMachine<S: Scope, K: ExchangeData+Hash+Eq, V: ExchangeData> {
+pub trait StateMachine<'a, S: Scope<'a>, K: ExchangeData+Hash+Eq, V: ExchangeData> {
     /// Tracks a state for each presented key, using user-supplied state transition logic.
     ///
     /// The transition logic `fold` may mutate the state, and produce both output records and
@@ -51,17 +51,17 @@ pub trait StateMachine<S: Scope, K: ExchangeData+Hash+Eq, V: ExchangeData> {
         I: IntoIterator<Item=R>,                    // type of output iterator
         F: Fn(&K, V, &mut D)->(bool, I)+'static,    // state update logic
         H: Fn(&K)->u64+'static,                     // "hash" function for keys
-    >(&self, fold: F, hash: H) -> Stream<S, R> where S::Timestamp : Hash+Eq ;
+    >(&self, fold: F, hash: H) -> Stream<'a, S, R> where S::Timestamp : Hash+Eq ;
 }
 
-impl<S: Scope, K: ExchangeData+Hash+Eq, V: ExchangeData> StateMachine<S, K, V> for Stream<S, (K, V)> {
+impl<'a, S: Scope<'a>, K: ExchangeData+Hash+Eq, V: ExchangeData> StateMachine<'a, S, K, V> for Stream<'a, S, (K, V)> {
     fn state_machine<
             R: Data,                                    // output type
             D: Default+'static,                         // per-key state (data)
             I: IntoIterator<Item=R>,                    // type of output iterator
             F: Fn(&K, V, &mut D)->(bool, I)+'static,    // state update logic
             H: Fn(&K)->u64+'static,                     // "hash" function for keys
-        >(&self, fold: F, hash: H) -> Stream<S, R> where S::Timestamp : Hash+Eq {
+        >(&self, fold: F, hash: H) -> Stream<'a, S, R> where S::Timestamp : Hash+Eq {
 
         let mut pending: HashMap<_, Vec<(K, V)>> = HashMap::new();   // times -> (keys -> state)
         let mut states = HashMap::new();    // keys -> state

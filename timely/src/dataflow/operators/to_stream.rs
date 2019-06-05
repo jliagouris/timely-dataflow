@@ -25,11 +25,11 @@ pub trait ToStream<T: Timestamp, D: Data> {
     ///
     /// assert_eq!(data1.extract(), data2.extract());
     /// ```
-    fn to_stream<S: Scope<Timestamp=T>>(self, scope: &mut S) -> Stream<S, D>;
+    fn to_stream<'a, S: Scope<'a, Timestamp=T>>(self, scope: &mut S) -> Stream<'a, S, D>;
 }
 
 impl<T: Timestamp, I: IntoIterator+'static> ToStream<T, I::Item> for I where I::Item: Data {
-    fn to_stream<S: Scope<Timestamp=T>>(self, scope: &mut S) -> Stream<S, I::Item> {
+    fn to_stream<'a, S: Scope<'a, Timestamp=T>>(self, scope: &mut S) -> Stream<'a, S, I::Item> {
 
         source(scope, "ToStream", |capability, info| {
 

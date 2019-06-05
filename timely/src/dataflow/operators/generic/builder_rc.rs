@@ -25,8 +25,8 @@ use crate::logging::TimelyLogger as Logger;
 use super::builder_raw::OperatorBuilder as OperatorBuilderRaw;
 
 /// Builds operators with generic shape.
-pub struct OperatorBuilder<G: Scope> {
-    builder: OperatorBuilderRaw<G>,
+pub struct OperatorBuilder<'a, G: Scope<'a>> {
+    builder: OperatorBuilderRaw<'a, G>,
     frontier: Vec<MutableAntichain<G::Timestamp>>,
     consumed: Vec<Rc<RefCell<ChangeBatch<G::Timestamp>>>>,
     internal: Rc<RefCell<Vec<Rc<RefCell<ChangeBatch<G::Timestamp>>>>>>,
@@ -34,7 +34,7 @@ pub struct OperatorBuilder<G: Scope> {
     logging: Option<Logger>,
 }
 
-impl<G: Scope> OperatorBuilder<G> {
+impl<'a, G: Scope<'a>> OperatorBuilder<'a, G> {
 
     /// Allocates a new generic operator builder from its containing scope.
     pub fn new(name: String, scope: G) -> Self {

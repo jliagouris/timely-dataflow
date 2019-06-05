@@ -16,7 +16,7 @@ use crate::Data;
 use crate::dataflow::{Stream, Scope};
 
 /// Monitors progress at a `Stream`.
-pub trait Probe<G: Scope, D: Data> {
+pub trait Probe<'a, G: Scope<'a>, D: Data> {
     /// Constructs a progress probe which indicates which timestamps have elapsed at the operator.
     ///
     /// # Examples
@@ -78,10 +78,10 @@ pub trait Probe<G: Scope, D: Data> {
     ///     }
     /// }).unwrap();
     /// ```
-    fn probe_with(&self, handle: &mut Handle<G::Timestamp>) -> Stream<G, D>;
+    fn probe_with(&self, handle: &mut Handle<G::Timestamp>) -> Stream<'a, G, D>;
 }
 
-impl<G: Scope, D: Data> Probe<G, D> for Stream<G, D> {
+impl<'a, G: Scope<'a>, D: Data> Probe<'a, G, D> for Stream<'a, G, D> {
     fn probe(&self) -> Handle<G::Timestamp> {
 
         // the frontier is shared state; scope updates, handle reads.
@@ -89,7 +89,7 @@ impl<G: Scope, D: Data> Probe<G, D> for Stream<G, D> {
         self.probe_with(&mut handle);
         handle
     }
-    fn probe_with(&self, handle: &mut Handle<G::Timestamp>) -> Stream<G, D> {
+    fn probe_with(&self, handle: &mut Handle<G::Timestamp>) -> Stream<'a, G, D> {
 
         let mut builder = OperatorBuilder::new("Probe".to_owned(), self.scope());
         let mut input = PullCounter::new(builder.new_input(self, Pipeline));

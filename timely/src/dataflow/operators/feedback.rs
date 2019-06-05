@@ -14,7 +14,7 @@ use crate::dataflow::operators::generic::builder_rc::OperatorBuilder;
 use crate::dataflow::operators::generic::OutputWrapper;
 
 /// Creates a `Stream` and a `Handle` to later bind the source of that `Stream`.
-pub trait Feedback<G: Scope> {
+pub trait Feedback<'a, G: Scope<'a>> {
     /// Creates a `Stream` and a `Handle` to later bind the source of that `Stream`.
     ///
     /// The resulting `Stream` will have its data defined by a future call to `connect_loop` with
@@ -36,11 +36,11 @@ pub trait Feedback<G: Scope> {
     ///            .connect_loop(handle);
     /// });
     /// ```
-    fn feedback<D: Data>(&mut self, summary: <G::Timestamp as Timestamp>::Summary) -> (Handle<G, D>, Stream<G, D>);
+    fn feedback<D: Data>(&mut self, summary: <G::Timestamp as Timestamp>::Summary) -> (Handle<G, D>, Stream<'a, G, D>);
 }
 
 /// Creates a `Stream` and a `Handle` to later bind the source of that `Stream`.
-pub trait LoopVariable<'a, G: Scope, T: Timestamp> {
+pub trait LoopVariable<'a, 'b, G: Scope<'a>, T: Timestamp> {
     /// Creates a `Stream` and a `Handle` to later bind the source of that `Stream`.
     ///
     /// The resulting `Stream` will have its data defined by a future call to `connect_loop` with
@@ -64,11 +64,11 @@ pub trait LoopVariable<'a, G: Scope, T: Timestamp> {
     ///     });
     /// });
     /// ```
-    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'a, G, T, G::StateBackend>, D>, Stream<Iterative<'a, G, T, G::StateBackend>, D>);
+    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'b, G, T, G::StateBackend>, D>, Stream<'a, Iterative<'b, G, T, G::StateBackend>, D>);
 }
 
-impl<G: Scope> Feedback<G> for G {
-    fn feedback<D: Data>(&mut self, summary: <G::Timestamp as Timestamp>::Summary) -> (Handle<G, D>, Stream<G, D>) {
+impl<'a, G: Scope<'a>> Feedback<'a, G> for G {
+    fn feedback<D: Data>(&mut self, summary: <G::Timestamp as Timestamp>::Summary) -> (Handle<G, D>, Stream<'a, G, D>) {
 
         let mut builder = OperatorBuilder::new("Feedback".to_owned(), self.clone());
         let (output, stream) = builder.new_output();
@@ -77,14 +77,14 @@ impl<G: Scope> Feedback<G> for G {
     }
 }
 
-impl<'a, G: Scope, T: Timestamp> LoopVariable<'a, G, T> for Iterative<'a, G, T, G::StateBackend> {
-    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'a, G, T, G::StateBackend>, D>, Stream<Iterative<'a, G, T, G::StateBackend>, D>) {
+impl<'a, 'b, G: Scope<'a>, T: Timestamp> LoopVariable<'a, 'b, G, T> for Iterative<'b, G, T, G::StateBackend> {
+    fn loop_variable<D: Data>(&mut self, summary: T::Summary) -> (Handle<Iterative<'b, G, T, G::StateBackend>, D>, Stream<'a, Iterative<'b, G, T, G::StateBackend>, D>) {
         self.feedback(Product::new(Default::default(), summary))
     }
 }
 
 /// Connect a `Stream` to the input of a loop variable.
-pub trait ConnectLoop<G: Scope, D: Data> {
+pub trait ConnectLoop<'a, G: Scope<'a>, D: Data> {
     /// Connect a `Stream` to be the input of a loop variable.
     ///
     /// # Examples
@@ -105,7 +105,7 @@ pub trait ConnectLoop<G: Scope, D: Data> {
     fn connect_loop(&self, _: Handle<G, D>);
 }
 
-impl<G: Scope, D: Data> ConnectLoop<G, D> for Stream<G, D> {
+impl<'a, G: Scope<'a>, D: Data> ConnectLoop<'a, G, D> for Stream<'a, G, D> {
     fn connect_loop(&self, helper: Handle<G, D>) {
 
         let mut builder = helper.builder;
@@ -131,8 +131,8 @@ impl<G: Scope, D: Data> ConnectLoop<G, D> for Stream<G, D> {
 }
 
 /// A handle used to bind the source of a loop variable.
-pub struct Handle<G: Scope, D: Data> {
-    builder: OperatorBuilder<G>,
+pub struct Handle<'a, G: Scope<'a>, D: Data> {
+    builder: OperatorBuilder<'a, G>,
     summary: <G::Timestamp as Timestamp>::Summary,
     output: OutputWrapper<G::Timestamp, D, Tee<G::Timestamp, D>>,
 }

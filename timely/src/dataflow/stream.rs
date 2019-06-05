@@ -18,7 +18,7 @@ use crate::dataflow::channels::Bundle;
 /// Internally `Stream` maintains a list of data recipients who should be presented with data
 /// produced by the source of the stream.
 #[derive(Clone)]
-pub struct Stream<S: Scope, D> {
+pub struct Stream<'a, S: Scope<'a>, D> {
     /// The progress identifier of the stream's data source.
     name: Source,
     /// The `Scope` containing the stream.
@@ -27,7 +27,7 @@ pub struct Stream<S: Scope, D> {
     ports: TeeHelper<S::Timestamp, D>,
 }
 
-impl<S: Scope, D> Stream<S, D> {
+impl<'a, S: Scope<'a>, D> Stream<'a, S, D> {
     /// Connects the stream to a destination.
     ///
     /// The destination is described both by a `Target`, for progress tracking information, and a `P: Push` where the

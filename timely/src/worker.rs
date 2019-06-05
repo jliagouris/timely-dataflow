@@ -17,7 +17,7 @@ use crate::progress::SubgraphBuilder;
 use crate::progress::operate::Operate;
 use crate::dataflow::scopes::Child;
 use crate::logging::TimelyLogger;
-use crate::state::{StateBackend, StateBackendInfo};
+use crate::state::StateBackend;
 
 use faster_rs::FasterKv;
 use tempdir::TempDir;
@@ -76,6 +76,8 @@ pub struct Worker<A: Allocate> {
     temp_channel_ids: Rc<RefCell<Vec<usize>>>,
 
     // State storage
+    faster: FasterKv,
+    monotonic_serial_number: Rc<RefCell<u64>>,
     directory: Rc<TempDir>,
 }
 
@@ -114,6 +116,20 @@ impl<A: Allocate> Worker<A> {
     pub fn new(c: A) -> Worker<A> {
         let now = Instant::now();
         let index = c.index();
+        let directory = Rc::new(
+        TempDir::new("timely").expect("Unable to create directory for state backend"),
+        );
+        // TODO: check sizing
+        let faster_kv = FasterKv::new(
+            1 << 14,
+            4294967296 / 2, //2GB
+            directory.path().to_str().unwrap().to_owned(),
+        )
+            .unwrap();
+        // Register with FASTER
+        let session_id = faster_kv.start_session();
+        println!("FASTER Session ID: {}", session_id);
+
         Worker {
             timer: now.clone(),
             paths: Rc::new(RefCell::new(HashMap::new())),
@@ -125,9 +141,9 @@ impl<A: Allocate> Worker<A> {
             activations: Rc::new(RefCell::new(Activations::new())),
             active_dataflows: Vec::new(),
             temp_channel_ids: Rc::new(RefCell::new(Vec::new())),
-            directory: Rc::new(
-                TempDir::new("timely").expect("Unable to create directory for state backend"),
-            ),
+            faster: faster_kv,
+            directory,
+            monotonic_serial_number: Rc::new(RefCell::new(0)),
         }
     }
 
@@ -358,11 +374,11 @@ impl<A: Allocate> Worker<A> {
     ///     });
     /// });
     /// ```
-    pub fn dataflow<T, R, F, S>(&mut self, func: F) -> R
+    pub fn dataflow<'a, T, R, F, S>(&mut self, func: F) -> R
     where
         T: Refines<()>,
         F: FnOnce(&mut Child<Self, T, S>)->R,
-        S: StateBackend
+        S: StateBackend<'a>
     {
         let logging = self.logging.borrow_mut().get("timely");
         self.dataflow_core("Dataflow", logging, Box::new(()), |_, child| func(child))
@@ -394,12 +410,12 @@ impl<A: Allocate> Worker<A> {
     ///     );
     /// });
     /// ```
-    pub fn dataflow_core<T, R, F, V, S>(&mut self, name: &str, mut logging: Option<TimelyLogger>, mut resources: V, func: F) -> R
+    pub fn dataflow_core<'a, T, R, F, V, S>(&mut self, name: &str, mut logging: Option<TimelyLogger>, mut resources: V, func: F) -> R
     where
         T: Refines<()>,
         F: FnOnce(&mut V, &mut Child<Self, T, S>)->R,
         V: Any+'static,
-        S: StateBackend,
+        S: StateBackend<'a>,
     {
         let addr = vec![];
         let dataflow_index = self.allocate_dataflow_index();
@@ -408,6 +424,7 @@ impl<A: Allocate> Worker<A> {
         let subscope = SubgraphBuilder::new_from(dataflow_index, addr, logging.clone(), name);
         let subscope = RefCell::new(subscope);
 
+        /*
         // TODO: check sizing
         let faster_kv = FasterKv::new(
             1 << 14,
@@ -416,16 +433,19 @@ impl<A: Allocate> Worker<A> {
         )
         .unwrap();
         // Register with FASTER
-        faster_kv.start_session();
-        let state_backend_info = StateBackendInfo::new(faster_kv);
+        let session_id = faster_kv.start_session();
+        println!("FASTER Session ID: {}", session_id);
+        */
+        //let state_backend_info = StateBackendInfo::new(&self.faster);
 
         let result = {
             let mut builder = Child {
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: logging.clone(),
-                state_backend: Rc::new(RefCell::new(S::new(&state_backend_info))),
-                state_backend_info,
+                faster: &self.faster,
+                monotonic_serial_number: Rc::clone(&self.monotonic_serial_number),
+                phantom: PhantomData,
             };
             func(&mut resources, &mut builder)
         };
@@ -467,6 +487,7 @@ impl<A: Allocate> Worker<A> {
 }
 
 use crate::communication::Message;
+use std::marker::PhantomData;
 
 impl<A: Allocate> Clone for Worker<A> {
     fn clone(&self) -> Self {
@@ -482,6 +503,8 @@ impl<A: Allocate> Clone for Worker<A> {
             active_dataflows: Vec::new(),
             temp_channel_ids: self.temp_channel_ids.clone(),
             directory: self.directory.clone(),
+            faster: self.faster.clone(),
+            monotonic_serial_number: self.monotonic_serial_number.clone(),
         }
     }
 }

@@ -54,7 +54,7 @@ impl OperatorShape {
 }
 
 /// Builds operators with generic shape.
-pub struct OperatorBuilder<G: Scope> {
+pub struct OperatorBuilder<'a, G: Scope<'a>> {
     scope: G,
     index: usize,
     global: usize,
@@ -63,7 +63,7 @@ pub struct OperatorBuilder<G: Scope> {
     summary: Vec<Vec<Antichain<<G::Timestamp as Timestamp>::Summary>>>,
 }
 
-impl<G: Scope> OperatorBuilder<G> {
+impl<'a, G: Scope<'a>> OperatorBuilder<'a, G> {
 
     /// Allocates a new generic operator builder from its containing scope.
     pub fn new(name: String, mut scope: G) -> Self {

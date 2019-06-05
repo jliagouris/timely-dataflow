@@ -118,7 +118,7 @@ pub trait Capture<T: Timestamp, D: Data> {
     }
 }
 
-impl<S: Scope, D: Data> Capture<S::Timestamp, D> for Stream<S, D> {
+impl<'a, S: Scope<'a>, D: Data> Capture<S::Timestamp, D> for Stream<'a, S, D> {
     fn capture_into<P: EventPusher<S::Timestamp, D>+'static>(&self, event_pusher: P) {
 
         let mut builder = OperatorBuilder::new("Capture".to_owned(), self.scope());

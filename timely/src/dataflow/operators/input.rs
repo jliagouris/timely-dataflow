@@ -23,7 +23,7 @@ use crate::dataflow::channels::{Message, pushers::{Tee, Counter}};
 // NOTE : Might be able to fix with another lifetime parameter, say 'c: 'a.
 
 /// Create a new `Stream` and `Handle` through which to supply input.
-pub trait Input : Scope {
+pub trait Input<'a> : Scope<'a> {
     /// Create a new `Stream` and `Handle` through which to supply input.
     ///
     /// The `new_input` method returns a pair `(Handle, Stream)` where the `Stream` can be used
@@ -58,7 +58,7 @@ pub trait Input : Scope {
     ///     }
     /// });
     /// ```
-    fn new_input<D: Data>(&mut self) -> (Handle<<Self as ScopeParent>::Timestamp, D>, Stream<Self, D>);
+    fn new_input<D: Data>(&mut self) -> (Handle<<Self as ScopeParent>::Timestamp, D>, Stream<'a, Self, D>);
 
     /// Create a new stream from a supplied interactive handle.
     ///
@@ -91,18 +91,18 @@ pub trait Input : Scope {
     ///     }
     /// });
     /// ```
-    fn input_from<D: Data>(&mut self, handle: &mut Handle<<Self as ScopeParent>::Timestamp, D>) -> Stream<Self, D>;
+    fn input_from<D: Data>(&mut self, handle: &mut Handle<<Self as ScopeParent>::Timestamp, D>) -> Stream<'a, Self, D>;
 }
 
 use crate::order::TotalOrder;
-impl<G: Scope> Input for G where <G as ScopeParent>::Timestamp: TotalOrder {
-    fn new_input<D: Data>(&mut self) -> (Handle<<G as ScopeParent>::Timestamp, D>, Stream<G, D>) {
+impl<'a, G: Scope<'a>> Input<'a> for G where <G as ScopeParent>::Timestamp: TotalOrder {
+    fn new_input<D: Data>(&mut self) -> (Handle<<G as ScopeParent>::Timestamp, D>, Stream<'a, G, D>) {
         let mut handle = Handle::new();
         let stream = self.input_from(&mut handle);
         (handle, stream)
     }
 
-    fn input_from<D: Data>(&mut self, handle: &mut Handle<<G as ScopeParent>::Timestamp, D>) -> Stream<G, D> {
+    fn input_from<D: Data>(&mut self, handle: &mut Handle<<G as ScopeParent>::Timestamp, D>) -> Stream<'a, G, D> {
 
         let (output, registrar) = Tee::<<G as ScopeParent>::Timestamp, D>::new();
         let counter = Counter::new(output);
@@ -247,7 +247,7 @@ impl<T:Timestamp, D: Data> Handle<T, D> {
     ///     }
     /// });
     /// ```
-    pub fn to_stream<G: Scope>(&mut self, scope: &mut G) -> Stream<G, D>
+    pub fn to_stream<'a, G: Scope<'a>>(&mut self, scope: &mut G) -> Stream<'a, G, D>
     where
         T: TotalOrder,
         G: ScopeParent<Timestamp=T>,
