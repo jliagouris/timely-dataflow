@@ -1,5 +1,5 @@
 use managed_count::FASTERManagedCount;
-pub use managed_map::FASTERManagedMap;
+use managed_map::FASTERManagedMap;
 use managed_value::FASTERManagedValue;
 
 mod managed_count;
@@ -22,7 +22,6 @@ pub struct FASTERBackend {
 fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
     if monotonic_serial_number % (1 << 12) == 0 {
         let check = faster.checkpoint().unwrap();
-        println!("Calling checkpoint with token {}", check.token);
     }
     if monotonic_serial_number % (1 << 8) == 0 {
         faster.complete_pending(false);
