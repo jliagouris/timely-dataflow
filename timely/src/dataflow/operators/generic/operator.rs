@@ -16,7 +16,6 @@ use crate::dataflow::operators::generic::OperatorInfo;
 use crate::dataflow::operators::generic::notificator::{Notificator, FrontierNotificator};
 use crate::state::{StateBackend, StateHandle};
 use std::rc::Rc;
-use std::cell::RefCell;
 
 /// Methods to construct generic streaming and blocking operators.
 pub trait Operator<G: Scope, D1: Data> {
@@ -666,7 +665,7 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
         let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let state_handle = StateHandle::new(Rc::new(S::new(self.scope().get_state_backend_info())), &name);
 
         let mut input = builder.new_input(self, pact);
         let (mut output, stream) = builder.new_output();
@@ -743,7 +742,7 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
         let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let state_handle = StateHandle::new(Rc::new(S::new(self.scope().get_state_backend_info())), &name);
 
         let mut input = builder.new_input(self, pact);
         let (mut output, stream) = builder.new_output();
@@ -792,7 +791,7 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
         let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let state_handle = StateHandle::new(Rc::new(S::new(self.scope().get_state_backend_info())), &name);
 
         let mut input1 = builder.new_input(self, pact1);
         let mut input2 = builder.new_input(other, pact2);
@@ -884,7 +883,7 @@ impl<G: Scope, D1: Data> Operator<G, D1> for Stream<G, D1> {
         let mut builder = OperatorBuilder::new(name.to_owned(), self.scope());
         let operator_info = builder.operator_info();
         let name = [&self.scope().index().to_string(), ".", &operator_info.global_id.to_string(), ".", &operator_info.local_id.to_string(), "."].join("");
-        let state_handle = StateHandle::new(Rc::new(RefCell::new(S::new(self.scope().get_state_backend_info()))), &name);
+        let state_handle = StateHandle::new(Rc::new(S::new(self.scope().get_state_backend_info())), &name);
 
         let mut input1 = builder.new_input(self, pact1);
         let mut input2 = builder.new_input(other, pact2);

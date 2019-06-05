@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Map, Operator, Inspect, Probe};
 use timely::dataflow::channels::pact::Exchange;
-use timely::state::backends::{InMemoryBackend,FASTERBackend};
+use timely::dataflow::Scope;
+use timely::state::backends::{InMemoryBackend, FASTERBackend};
 
 fn main() {
     // initializes and runs a timely dataflow.
@@ -19,6 +20,7 @@ fn main() {
 
         // create a new input, exchange data, and inspect its output
         worker.dataflow::<usize,_,_,FASTERBackend>(|scope| {
+            //scope.initialise_state_backend();
             input.to_stream(scope)
                  .flat_map(|(text, diff): (String, i64)|
                     text.split_whitespace()

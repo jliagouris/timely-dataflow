@@ -27,7 +27,7 @@ timely_bytes = { path = "../bytes", version = "0.9" }
 timely_logging = { path = "../logging", version = "0.9" }
 timely_communication = { path = "../communication", version = "0.9" }
 timely_state = { path = "../state", version = "0.1.0" }
-faster-rs = { git = "https://github.com/matthewbrookes/faster-rs.git", branch = "timely"}
+faster-rs = { git = "https://github.com/faster-rs/faster-rs.git", branch = "master"}
 tempdir = "0.3.7"
 
 [dev-dependencies]

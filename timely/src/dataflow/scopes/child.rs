@@ -33,11 +33,11 @@ where
     /// A copy of the child's parent scope.
     pub parent:   G,
     /// The log writer for this scope.
-    pub logging:  Option<Logger>,
+    logging:  Option<Logger>,
     /// The state backend for this code.
-    pub state_backend: Rc<RefCell<S>>,
+    state_backend: Rc<S>,
     /// The information required for spawning state backends
-    pub state_backend_info: StateBackendInfo,
+    state_backend_info: StateBackendInfo,
 }
 
 impl<'a, G, T, S> Child<'a, G, T, S>
@@ -46,6 +46,34 @@ where
     T: Timestamp+Refines<G::Timestamp>,
     S: StateBackend
 {
+
+    /// New
+    pub fn new(subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>, parent: G, logging: Option<Logger>, state_directory: &str) -> Self {
+        // TODO: check sizing
+        /*
+        let faster_kv = Rc::new(FasterKv::new(
+            1 << 15,
+            4294967296 / 2, //2GB
+            directory.path().to_str().unwrap().to_owned(),
+        ).unwrap());
+        */
+        let faster_kv = Rc::new(FasterKv::new(
+            1 << 15,
+            4294967296 / 2, //2GB
+            state_directory.to_string(),
+        ).unwrap());
+        let state_backend_info = StateBackendInfo::new(&faster_kv);
+        faster_kv.start_session();
+        Child {
+            subgraph,
+            parent,
+            logging,
+            state_backend: Rc::new(S::new(&state_backend_info)),
+            state_backend_info,
+        }
+
+    }
+
     /// This worker's unique identifier.
     ///
     /// Ranges from `0` to `self.peers() - 1`.
@@ -156,6 +184,7 @@ where
 }
 
 use crate::communication::Message;
+use faster_rs::FasterKv;
 
 impl<'a, G, T, S> Clone for Child<'a, G, T, S>
 where

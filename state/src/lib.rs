@@ -16,9 +16,9 @@ pub struct StateBackendInfo {
 }
 
 impl StateBackendInfo {
-    pub fn new(faster: FasterKv) -> Self {
+    pub fn new(faster: &Rc<FasterKv>) -> Self {
         StateBackendInfo {
-            faster: Rc::new(faster),
+            faster: Rc::clone(faster),
             monotonic_serial_number: Rc::new(RefCell::new(0)),
         }
     }
@@ -36,12 +36,12 @@ pub trait StateBackend: 'static {
 }
 
 pub struct StateHandle<S: StateBackend> {
-    backend: Rc<RefCell<S>>,
+    backend: Rc<S>,
     name: String,
 }
 
 impl<S: StateBackend> StateHandle<S> {
-    pub fn new(backend: Rc<RefCell<S>>, name: &str) -> Self {
+    pub fn new(backend: Rc<S>, name: &str) -> Self {
         StateHandle {
             backend,
             name: name.to_owned(),
@@ -51,7 +51,7 @@ impl<S: StateBackend> StateHandle<S> {
     pub fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        self.backend.borrow().get_managed_count(&physical_name)
+        self.backend.get_managed_count(&physical_name)
     }
 
     pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
@@ -61,12 +61,12 @@ impl<S: StateBackend> StateHandle<S> {
     {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        self.backend.borrow().get_managed_map(&physical_name)
+        self.backend.get_managed_map(&physical_name)
     }
 
     pub fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
-        self.backend.borrow().get_managed_value(&physical_name)
+        self.backend.get_managed_value(&physical_name)
     }
 }

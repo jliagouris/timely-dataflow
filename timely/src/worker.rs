@@ -17,9 +17,8 @@ use crate::progress::SubgraphBuilder;
 use crate::progress::operate::Operate;
 use crate::dataflow::scopes::Child;
 use crate::logging::TimelyLogger;
-use crate::state::{StateBackend, StateBackendInfo};
+use crate::state::StateBackend;
 
-use faster_rs::FasterKv;
 use tempdir::TempDir;
 
 /// Methods provided by the root Worker.
@@ -77,6 +76,7 @@ pub struct Worker<A: Allocate> {
 
     // State storage
     directory: Rc<TempDir>,
+
 }
 
 impl<A: Allocate> AsWorker for Worker<A> {
@@ -125,9 +125,7 @@ impl<A: Allocate> Worker<A> {
             activations: Rc::new(RefCell::new(Activations::new())),
             active_dataflows: Vec::new(),
             temp_channel_ids: Rc::new(RefCell::new(Vec::new())),
-            directory: Rc::new(
-                TempDir::new("timely").expect("Unable to create directory for state backend"),
-            ),
+            directory : Rc::new(TempDir::new_in(".", "faster").expect("Unable to create directory for state backend")),
         }
     }
 
@@ -408,25 +406,8 @@ impl<A: Allocate> Worker<A> {
         let subscope = SubgraphBuilder::new_from(dataflow_index, addr, logging.clone(), name);
         let subscope = RefCell::new(subscope);
 
-        // TODO: check sizing
-        let faster_kv = FasterKv::new(
-            1 << 14,
-            4294967296 / 2, //2GB
-            self.directory.path().to_str().unwrap().to_owned(),
-        )
-        .unwrap();
-        // Register with FASTER
-        faster_kv.start_session();
-        let state_backend_info = StateBackendInfo::new(faster_kv);
-
         let result = {
-            let mut builder = Child {
-                subgraph: &subscope,
-                parent: self.clone(),
-                logging: logging.clone(),
-                state_backend: Rc::new(RefCell::new(S::new(&state_backend_info))),
-                state_backend_info,
-            };
+            let mut builder = Child::new(&subscope, self.clone(), logging.clone(), self.directory.path().to_str().unwrap());
             func(&mut resources, &mut builder)
         };
 
