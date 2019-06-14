@@ -7,14 +7,14 @@ mod managed_map;
 mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use crate::{StateBackend, StateBackendInfo};
+use crate::StateBackend;
 use faster_rs::{FasterKey, FasterValue};
 use std::hash::Hash;
 
 pub struct InMemoryBackend {}
 
 impl StateBackend for InMemoryBackend {
-    fn new(_: &StateBackendInfo) -> Self {
+    fn new() -> Self {
         InMemoryBackend {}
     }
 

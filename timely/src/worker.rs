@@ -1,7 +1,4 @@
 //! The root of each single-threaded worker.
-extern crate faster_rs;
-extern crate tempdir;
-
 use std::rc::Rc;
 use std::cell::{RefCell, RefMut};
 use std::any::Any;
@@ -17,9 +14,7 @@ use crate::progress::SubgraphBuilder;
 use crate::progress::operate::Operate;
 use crate::dataflow::scopes::Child;
 use crate::logging::TimelyLogger;
-use crate::state::StateBackend;
-
-use tempdir::TempDir;
+use crate::state::{StateBackend, StateHandle};
 
 /// Methods provided by the root Worker.
 ///
@@ -74,9 +69,6 @@ pub struct Worker<A: Allocate> {
     // These are then associated with a dataflow once constructed.
     temp_channel_ids: Rc<RefCell<Vec<usize>>>,
 
-    // State storage
-    directory: Rc<TempDir>,
-
 }
 
 impl<A: Allocate> AsWorker for Worker<A> {
@@ -125,7 +117,6 @@ impl<A: Allocate> Worker<A> {
             activations: Rc::new(RefCell::new(Activations::new())),
             active_dataflows: Vec::new(),
             temp_channel_ids: Rc::new(RefCell::new(Vec::new())),
-            directory : Rc::new(TempDir::new_in(".", "faster").expect("Unable to create directory for state backend")),
         }
     }
 
@@ -406,8 +397,12 @@ impl<A: Allocate> Worker<A> {
         let subscope = SubgraphBuilder::new_from(dataflow_index, addr, logging.clone(), name);
         let subscope = RefCell::new(subscope);
 
+
+        let state_backend = Rc::new(S::new());
+        let state_handle = StateHandle::new(state_backend, &self.index().to_string());
+
         let result = {
-            let mut builder = Child::new(&subscope, self.clone(), logging.clone(), self.directory.path().to_str().unwrap());
+            let mut builder = Child::new(&subscope, self.clone(), logging.clone(), state_handle);
             func(&mut resources, &mut builder)
         };
 
@@ -462,7 +457,6 @@ impl<A: Allocate> Clone for Worker<A> {
             activations: self.activations.clone(),
             active_dataflows: Vec::new(),
             temp_channel_ids: self.temp_channel_ids.clone(),
-            directory: self.directory.clone(),
         }
     }
 }

@@ -13,7 +13,7 @@ use crate::progress::timestamp::Refines;
 use crate::order::Product;
 use crate::logging::TimelyLogger as Logger;
 use crate::worker::AsWorker;
-use crate::state::{StateBackend, StateBackendInfo, StateHandle};
+use crate::state::{StateBackend, StateHandle};
 
 use super::{ScopeParent, Scope};
 
@@ -34,10 +34,8 @@ where
     pub parent:   G,
     /// The log writer for this scope.
     logging:  Option<Logger>,
-    /// The state backend for this code.
-    state_backend: Rc<S>,
-    /// The information required for spawning state backends
-    state_backend_info: StateBackendInfo,
+    /// The state handle for this scope.
+    state_handle: StateHandle<S>,
 }
 
 impl<'a, G, T, S> Child<'a, G, T, S>
@@ -48,21 +46,12 @@ where
 {
 
     /// New
-    pub fn new(subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>, parent: G, logging: Option<Logger>, state_directory: &str) -> Self {
-        // TODO: check sizing
-        let faster_kv = Rc::new(FasterKv::new(
-            1 << 15,
-            5905580032, //5.5GB
-            state_directory.to_string(),
-        ).unwrap());
-        let state_backend_info = StateBackendInfo::new(&faster_kv);
-        faster_kv.start_session();
+    pub fn new(subgraph: &'a RefCell<SubgraphBuilder<G::Timestamp, T>>, parent: G, logging: Option<Logger>, state_handle: StateHandle<S>) -> Self {
         Child {
             subgraph,
             parent,
             logging,
-            state_backend: Rc::new(S::new(&state_backend_info)),
-            state_backend_info,
+            state_handle,
         }
 
     }
@@ -154,8 +143,7 @@ where
                 subgraph: &subscope,
                 parent: self.clone(),
                 logging: self.logging.clone(),
-                state_backend: self.state_backend.clone(),
-                state_backend_info: self.state_backend_info.clone(),
+                state_handle: self.state_handle.create_sub_handle(&index.to_string())
             };
             func(&mut builder)
         };
@@ -166,18 +154,13 @@ where
         result
     }
 
-    fn get_state_handle(&self) -> StateHandle<S> {
-        let name = [&self.index().to_string(), "."].join("");
-        StateHandle::new(self.state_backend.clone(), &name)
+    fn get_state_handle(&self) -> &StateHandle<S> {
+        &self.state_handle
     }
 
-    fn get_state_backend_info(&self) -> &StateBackendInfo {
-        &self.state_backend_info
-    }
 }
 
 use crate::communication::Message;
-use faster_rs::FasterKv;
 
 impl<'a, G, T, S> Clone for Child<'a, G, T, S>
 where
@@ -190,8 +173,7 @@ where
             subgraph: self.subgraph,
             parent: self.parent.clone(),
             logging: self.logging.clone(),
-            state_backend: self.state_backend.clone(),
-            state_backend_info: self.state_backend_info.clone(),
+            state_handle: self.state_handle.clone(),
         }
     }
 }

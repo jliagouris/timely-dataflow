@@ -1,31 +1,15 @@
 extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use faster_rs::{FasterKey, FasterKv, FasterValue};
-use std::cell::RefCell;
+use faster_rs::{FasterKey, FasterValue};
 use std::hash::Hash;
 use std::rc::Rc;
 
 pub mod backends;
 pub mod primitives;
 
-#[derive(Clone)]
-pub struct StateBackendInfo {
-    faster: Rc<FasterKv>,
-    monotonic_serial_number: Rc<RefCell<u64>>,
-}
-
-impl StateBackendInfo {
-    pub fn new(faster: &Rc<FasterKv>) -> Self {
-        StateBackendInfo {
-            faster: Rc::clone(faster),
-            monotonic_serial_number: Rc::new(RefCell::new(0)),
-        }
-    }
-}
-
 pub trait StateBackend: 'static {
-    fn new(info: &StateBackendInfo) -> Self;
+    fn new() -> Self;
 
     fn get_managed_count(&self, name: &str) -> Box<ManagedCount>;
     fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>>;
@@ -45,6 +29,13 @@ impl<S: StateBackend> StateHandle<S> {
         StateHandle {
             backend,
             name: name.to_owned(),
+        }
+    }
+
+    pub fn create_sub_handle(&self, name: &str) -> Self {
+        StateHandle {
+            backend: Rc::clone(&self.backend),
+            name: [&self.name, name].join("."),
         }
     }
 
@@ -68,5 +59,14 @@ impl<S: StateBackend> StateHandle<S> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
         self.backend.get_managed_value(&physical_name)
+    }
+}
+
+impl<S: StateBackend> Clone for StateHandle<S> {
+    fn clone(&self) -> Self {
+        StateHandle {
+            backend: Rc::clone(&self.backend),
+            name: self.name.clone(),
+        }
     }
 }
