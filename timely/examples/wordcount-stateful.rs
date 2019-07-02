@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use timely::dataflow::{InputHandle, ProbeHandle};
 use timely::dataflow::operators::{Map, Operator, Inspect, Probe};
 use timely::dataflow::channels::pact::Exchange;
-use timely::dataflow::Scope;
 use timely::state::backends::{InMemoryBackend, FASTERBackend};
 
 fn main() {
@@ -19,8 +18,7 @@ fn main() {
         let exchange = Exchange::new(|x: &(String, i64)| (x.0).len() as u64);
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow::<usize,_,_,FASTERBackend>(|scope| {
-            //scope.initialise_state_backend();
+        worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
             input.to_stream(scope)
                  .flat_map(|(text, diff): (String, i64)|
                     text.split_whitespace()
@@ -29,6 +27,7 @@ fn main() {
                  )
                  .unary_frontier(exchange, "WordCount", |_capability, _info, state_handle| {
                     let mut queues = HashMap::new();
+                    let mut counts = state_handle.get_managed_map("counts");
 
                     move |input, output| {
                         while let Some((time, data)) = input.next() {
@@ -42,9 +41,8 @@ fn main() {
                                 let mut session = output.session(key);
                                 for mut batch in val.drain(..) {
                                     for (word, diff) in batch.drain(..) {
-                                        let mut count = state_handle.get_managed_count(&word.clone());
-                                        count.increase(diff);
-                                        session.give((word, count.get()));
+                                        counts.rmw(word.clone(), diff);
+                                        session.give((word.clone(), *counts.get(&word).unwrap()));
                                     }
                                 }
                             }
