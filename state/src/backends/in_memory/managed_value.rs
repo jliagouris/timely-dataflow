@@ -1,18 +1,18 @@
 use crate::primitives::ManagedValue;
-use faster_rs::FasterValue;
+use faster_rs::{FasterRmw, FasterValue};
 use std::rc::Rc;
 
-pub struct InMemoryManagedValue<V: FasterValue> {
+pub struct InMemoryManagedValue<V: FasterValue + FasterRmw> {
     value: Option<Rc<V>>,
 }
 
-impl<V: 'static + FasterValue> InMemoryManagedValue<V> {
+impl<V: 'static + FasterValue + FasterRmw> InMemoryManagedValue<V> {
     pub fn new() -> Self {
         InMemoryManagedValue { value: None }
     }
 }
 
-impl<V: 'static + FasterValue> ManagedValue<V> for InMemoryManagedValue<V> {
+impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for InMemoryManagedValue<V> {
     fn set(&mut self, value: V) {
         self.value.replace(Rc::new(value));
     }

@@ -8,7 +8,7 @@ mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::StateBackend;
-use faster_rs::{FasterKey, FasterValue};
+use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use std::hash::Hash;
 
 pub struct InMemoryBackend {}
@@ -22,14 +22,17 @@ impl StateBackend for InMemoryBackend {
         Box::new(InMemoryManagedCount::new())
     }
 
-    fn get_managed_value<V: 'static + FasterValue>(&self, _name: &str) -> Box<ManagedValue<V>> {
+    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+        &self,
+        _name: &str,
+    ) -> Box<ManagedValue<V>> {
         Box::new(InMemoryManagedValue::new())
     }
 
     fn get_managed_map<K, V>(&self, _name: &str) -> Box<ManagedMap<K, V>>
     where
         K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue,
+        V: 'static + FasterValue + FasterRmw,
     {
         Box::new(InMemoryManagedMap::new())
     }

@@ -1,7 +1,7 @@
 extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use faster_rs::{FasterKey, FasterValue};
+use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -12,11 +12,14 @@ pub trait StateBackend: 'static {
     fn new() -> Self;
 
     fn get_managed_count(&self, name: &str) -> Box<ManagedCount>;
-    fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>>;
+    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+        &self,
+        name: &str,
+    ) -> Box<ManagedValue<V>>;
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
         K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue;
+        V: 'static + FasterValue + FasterRmw;
 }
 
 pub struct StateHandle<S: StateBackend> {
@@ -48,14 +51,17 @@ impl<S: StateBackend> StateHandle<S> {
     pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
         K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue,
+        V: 'static + FasterValue + FasterRmw,
     {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
         self.backend.get_managed_map(&physical_name)
     }
 
-    pub fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {
+    pub fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+        &self,
+        name: &str,
+    ) -> Box<ManagedValue<V>> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
         self.backend.get_managed_value(&physical_name)

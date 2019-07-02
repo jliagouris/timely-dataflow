@@ -1,5 +1,5 @@
 use crate::primitives::ManagedMap;
-use faster_rs::{FasterKey, FasterValue};
+use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -7,7 +7,7 @@ use std::rc::Rc;
 pub struct InMemoryManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     map: HashMap<K, Rc<V>>,
 }
@@ -15,7 +15,7 @@ where
 impl<K, V> InMemoryManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     pub fn new() -> Self {
         InMemoryManagedMap {
@@ -27,7 +27,7 @@ where
 impl<K, V> ManagedMap<K, V> for InMemoryManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {
         self.map.insert(key, Rc::new(value));

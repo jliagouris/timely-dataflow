@@ -1,4 +1,4 @@
-use faster_rs::{FasterKey, FasterValue};
+use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -9,7 +9,7 @@ pub trait ManagedCount {
     fn set(&mut self, value: i64);
 }
 
-pub trait ManagedValue<V: 'static + FasterValue> {
+pub trait ManagedValue<V: 'static + FasterValue + FasterRmw> {
     fn set(&mut self, value: V);
     fn get(&self) -> Option<Rc<V>>;
     fn take(&mut self) -> Option<V>;
@@ -19,7 +19,7 @@ pub trait ManagedValue<V: 'static + FasterValue> {
 pub trait ManagedMap<K, V>
 where
     K: FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V);
     fn get(&self, key: &K) -> Option<Rc<V>>;

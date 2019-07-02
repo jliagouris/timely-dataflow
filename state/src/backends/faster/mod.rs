@@ -11,7 +11,7 @@ mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::StateBackend;
-use faster_rs::{FasterKey, FasterKv, FasterValue};
+use faster_rs::{FasterKey, FasterKv, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -60,7 +60,7 @@ fn faster_read<K: FasterKey, V: FasterValue>(
     (status, recv)
 }
 
-fn faster_rmw<K: FasterKey, V: FasterValue>(
+fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
     faster: &Rc<FasterKv>,
     key: &K,
     modification: &V,
@@ -100,7 +100,10 @@ impl StateBackend for FASTERBackend {
         ))
     }
 
-    fn get_managed_value<V: 'static + FasterValue>(&self, name: &str) -> Box<ManagedValue<V>> {
+    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+        &self,
+        name: &str,
+    ) -> Box<ManagedValue<V>> {
         Box::new(FASTERManagedValue::new(
             Rc::clone(&self.faster),
             Rc::clone(&self.monotonic_serial_number),
@@ -111,7 +114,7 @@ impl StateBackend for FASTERBackend {
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
         K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue,
+        V: 'static + FasterValue + FasterRmw,
     {
         Box::new(FASTERManagedMap::new(
             Rc::clone(&self.faster),

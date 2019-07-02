@@ -1,18 +1,18 @@
 use crate::backends::faster::{faster_read, faster_rmw, faster_upsert};
 use crate::primitives::ManagedValue;
-use faster_rs::{status, FasterKv, FasterValue};
+use faster_rs::{status, FasterKv, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub struct FASTERManagedValue<V: 'static + FasterValue> {
+pub struct FASTERManagedValue<V: 'static + FasterValue + FasterRmw> {
     faster: Rc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     name: String,
     value: PhantomData<V>,
 }
 
-impl<V: 'static + FasterValue> FASTERManagedValue<V> {
+impl<V: 'static + FasterValue + FasterRmw> FASTERManagedValue<V> {
     pub fn new(
         faster: Rc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
@@ -27,7 +27,7 @@ impl<V: 'static + FasterValue> FASTERManagedValue<V> {
     }
 }
 
-impl<V: 'static + FasterValue> ManagedValue<V> for FASTERManagedValue<V> {
+impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for FASTERManagedValue<V> {
     fn set(&mut self, value: V) {
         faster_upsert(
             &self.faster,

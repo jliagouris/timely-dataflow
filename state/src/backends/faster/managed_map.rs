@@ -1,7 +1,7 @@
 use crate::backends::faster::{faster_read, faster_rmw, faster_upsert};
 use crate::primitives::ManagedMap;
 use bincode::serialize;
-use faster_rs::{status, FasterKey, FasterKv, FasterValue};
+use faster_rs::{status, FasterKey, FasterKv, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -11,7 +11,7 @@ use std::sync::mpsc::Receiver;
 pub struct FASTERManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     faster: Rc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
@@ -23,7 +23,7 @@ where
 impl<K, V> FASTERManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(
         faster: Rc<FasterKv>,
@@ -50,7 +50,7 @@ where
 impl<K, V> ManagedMap<K, V> for FASTERManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue,
+    V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
