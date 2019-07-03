@@ -9,7 +9,7 @@ use timely::state::backends::{InMemoryBackend, FASTERBackend};
 
 fn main() {
     // initializes and runs a timely dataflow.
-    timely::execute_from_args(std::env::args(), |worker| {
+    timely::execute_from_args(std::env::args(), |worker, _node_state_handle| {
 
         let mut input = InputHandle::new();
         let mut probe = ProbeHandle::new();
