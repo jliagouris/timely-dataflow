@@ -1,9 +1,14 @@
 //! Starts a timely dataflow execution from configuration information and per-worker logic.
-
 use crate::communication::{initialize_from, Configuration, Allocator, allocator::AllocateBuilder, WorkerGuards};
 use crate::dataflow::scopes::Child;
 use crate::worker::Worker;
-use crate::state::backends::InMemoryBackend;
+use crate::state::backends::{InMemoryBackend, FASTERBackend};
+use crate::state::StateHandle;
+
+use std::rc::Rc;
+use faster_rs::FasterKv;
+use tempfile::TempDir;
+use std::sync::Arc;
 
 /// Executes a single-threaded timely dataflow computation.
 ///
@@ -144,7 +149,7 @@ where
 pub fn execute<T, F>(mut config: Configuration, func: F) -> Result<WorkerGuards<T>,String>
 where
     T:Send+'static,
-    F: Fn(&mut Worker<Allocator>)->T+Send+Sync+'static {
+    F: Fn(&mut Worker<Allocator>, StateHandle<FASTERBackend>)->T+Send+Sync+'static {
 
     if let Configuration::Cluster { ref mut log_fn, .. } = config {
 
@@ -178,6 +183,14 @@ where
 
     let (allocators, other) = config.try_build()?;
 
+    let faster_directory = Arc::new(TempDir::new_in(".").expect("Unable to create directory for FASTER"));
+    // TODO: check sizing
+    let faster_kv = Arc::new(FasterKv::new(
+        1 << 15,
+        2 * 1024 * 1024 * 1024, // 2GB
+        faster_directory.path().to_str().unwrap().to_owned(),
+    ).unwrap());
+
     initialize_from(allocators, other, move |allocator| {
 
         let mut worker = Worker::new(allocator);
@@ -202,8 +215,15 @@ where
             }
         }
 
-        let result = func(&mut worker);
+        faster_kv.start_session();
+        let faster_backend = Rc::new(FASTERBackend::new_from_existing(&faster_kv, &faster_directory));
+        let state_handle = StateHandle::new(faster_backend, &worker.index().to_string());
+
+        let result = func(&mut worker, state_handle);
         while worker.step_or_park(None) { }
+
+        faster_kv.complete_pending(true);
+        faster_kv.stop_session();
         result
     })
 }
@@ -260,7 +280,7 @@ where
 pub fn execute_from_args<I, T, F>(iter: I, func: F) -> Result<WorkerGuards<T>,String>
     where I: Iterator<Item=String>,
           T:Send+'static,
-          F: Fn(&mut Worker<Allocator>)->T+Send+Sync+'static, {
+          F: Fn(&mut Worker<Allocator>, StateHandle<FASTERBackend>)->T+Send+Sync+'static, {
     let configuration = Configuration::from_args(iter)?;
     execute(configuration, func)
 }
@@ -286,11 +306,26 @@ pub fn execute_from<A, T, F>(builders: Vec<A>, others: Box<::std::any::Any>, fun
 where
     A: AllocateBuilder+'static,
     T: Send+'static,
-    F: Fn(&mut Worker<<A as AllocateBuilder>::Allocator>)->T+Send+Sync+'static {
+    F: Fn(&mut Worker<<A as AllocateBuilder>::Allocator>, StateHandle<FASTERBackend>)->T+Send+Sync+'static {
+    let faster_directory = Arc::new(TempDir::new_in(".").expect("Unable to create directory for FASTER"));
+    // TODO: check sizing
+    let faster_kv = Arc::new(FasterKv::new(
+        1 << 15,
+        2 * 1024 * 1024 * 1024, // 2GB
+        faster_directory.path().to_str().unwrap().to_owned(),
+    ).unwrap());
+
     initialize_from(builders, others, move |allocator| {
         let mut worker = Worker::new(allocator);
-        let result = func(&mut worker);
+        faster_kv.start_session();
+        let faster_backend = Rc::new(FASTERBackend::new_from_existing(&faster_kv, &faster_directory));
+        let state_handle = StateHandle::new(faster_backend, &worker.index().to_string());
+
+        let result = func(&mut worker, state_handle);
         while worker.step_or_park(None) { }
+
+        faster_kv.complete_pending(true);
+        faster_kv.stop_session();
         result
     })
 }
