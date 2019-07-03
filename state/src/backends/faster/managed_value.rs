@@ -4,9 +4,10 @@ use faster_rs::{status, FasterKv, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct FASTERManagedValue<V: 'static + FasterValue + FasterRmw> {
-    faster: Rc<FasterKv>,
+    faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     name: String,
     value: PhantomData<V>,
@@ -14,7 +15,7 @@ pub struct FASTERManagedValue<V: 'static + FasterValue + FasterRmw> {
 
 impl<V: 'static + FasterValue + FasterRmw> FASTERManagedValue<V> {
     pub fn new(
-        faster: Rc<FasterKv>,
+        faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
         name: &str,
     ) -> Self {

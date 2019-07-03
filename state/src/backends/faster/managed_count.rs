@@ -3,16 +3,17 @@ use crate::primitives::ManagedCount;
 use faster_rs::{status, FasterKv};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct FASTERManagedCount {
-    faster: Rc<FasterKv>,
+    faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     name: String,
 }
 
 impl FASTERManagedCount {
     pub fn new(
-        faster: Rc<FasterKv>,
+        faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
         name: &str,
     ) -> Self {

@@ -7,13 +7,14 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 
 pub struct FASTERManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
-    faster: Rc<FasterKv>,
+    faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     serialised_name: Vec<u8>,
     key: PhantomData<K>,
@@ -26,7 +27,7 @@ where
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(
-        faster: Rc<FasterKv>,
+        faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
         name: &str,
     ) -> Self {

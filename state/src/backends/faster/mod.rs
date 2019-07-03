@@ -16,16 +16,17 @@ use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 #[allow(dead_code)]
 pub struct FASTERBackend {
-    faster: Rc<FasterKv>,
+    faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
-    faster_directory: TempDir,
+    faster_directory: Arc<TempDir>,
 }
 
-fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
+fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
     if monotonic_serial_number % (1 << 14) == 0 {
         faster.checkpoint().unwrap();
     }
@@ -37,7 +38,7 @@ fn maybe_refresh_faster(faster: &Rc<FasterKv>, monotonic_serial_number: u64) {
 }
 
 fn faster_upsert<K: FasterKey, V: FasterValue>(
-    faster: &Rc<FasterKv>,
+    faster: &Arc<FasterKv>,
     key: &K,
     value: &V,
     monotonic_serial_number: &Rc<RefCell<u64>>,
@@ -49,7 +50,7 @@ fn faster_upsert<K: FasterKey, V: FasterValue>(
 }
 
 fn faster_read<K: FasterKey, V: FasterValue>(
-    faster: &Rc<FasterKv>,
+    faster: &Arc<FasterKv>,
     key: &K,
     monotonic_serial_number: &Rc<RefCell<u64>>,
 ) -> (u8, Receiver<V>) {
@@ -61,7 +62,7 @@ fn faster_read<K: FasterKey, V: FasterValue>(
 }
 
 fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
-    faster: &Rc<FasterKv>,
+    faster: &Arc<FasterKv>,
     key: &K,
     modification: &V,
     monotonic_serial_number: &Rc<RefCell<u64>>,
@@ -76,7 +77,7 @@ impl StateBackend for FASTERBackend {
     fn new() -> Self {
         let faster_directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
         // TODO: check sizing
-        let faster_kv = Rc::new(
+        let faster_kv = Arc::new(
             FasterKv::new(
                 1 << 15,
                 4 * 1024 * 1024 * 1024, // 4GB
@@ -88,13 +89,13 @@ impl StateBackend for FASTERBackend {
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),
-            faster_directory,
+            faster_directory: Arc::new(faster_directory),
         }
     }
 
     fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {
         Box::new(FASTERManagedCount::new(
-            Rc::clone(&self.faster),
+            Arc::clone(&self.faster),
             Rc::clone(&self.monotonic_serial_number),
             name,
         ))
@@ -105,7 +106,7 @@ impl StateBackend for FASTERBackend {
         name: &str,
     ) -> Box<ManagedValue<V>> {
         Box::new(FASTERManagedValue::new(
-            Rc::clone(&self.faster),
+            Arc::clone(&self.faster),
             Rc::clone(&self.monotonic_serial_number),
             name,
         ))
@@ -117,9 +118,19 @@ impl StateBackend for FASTERBackend {
         V: 'static + FasterValue + FasterRmw,
     {
         Box::new(FASTERManagedMap::new(
-            Rc::clone(&self.faster),
+            Arc::clone(&self.faster),
             Rc::clone(&self.monotonic_serial_number),
             name,
         ))
+    }
+}
+
+impl FASTERBackend {
+    pub fn new_from_existing(faster_kv: &Arc<FasterKv>, faster_directory: &Arc<TempDir>) -> Self {
+        FASTERBackend {
+            faster: Arc::clone(faster_kv),
+            monotonic_serial_number: Rc::new(RefCell::new(1)),
+            faster_directory: Arc::clone(faster_directory),
+        }
     }
 }
