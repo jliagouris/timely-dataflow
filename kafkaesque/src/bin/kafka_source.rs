@@ -26,7 +26,7 @@ fn main() {
         .set("session.timeout.ms", "6000")
         .set("bootstrap.servers", &brokers);
 
-    timely::execute_from_args(args, move |worker| {
+    timely::execute_from_args(args, move |worker, _state_handle| {
 
         // A dataflow for producing spans.
         worker.dataflow::<u64,_,_,InMemoryBackend>(|scope| {

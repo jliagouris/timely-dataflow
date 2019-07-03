@@ -7,7 +7,7 @@ use rdkafka::config::ClientConfig;
 use kafkaesque::EventProducer;
 
 fn main() {
-    timely::execute_from_args(std::env::args(), |worker| {
+    timely::execute_from_args(std::env::args(), |worker, _state_handle| {
 
         // target topic name.
         let topic = std::env::args().nth(1).unwrap();

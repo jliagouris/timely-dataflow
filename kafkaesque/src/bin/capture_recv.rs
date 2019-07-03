@@ -8,7 +8,7 @@ use rdkafka::config::ClientConfig;
 use kafkaesque::EventConsumer;
 
 fn main() {
-    timely::execute_from_args(std::env::args(), |worker| {
+    timely::execute_from_args(std::env::args(), |worker, _state_handle| {
 
         let topic = std::env::args().nth(1).unwrap();
         let source_peers = std::env::args().nth(2).unwrap().parse::<usize>().unwrap();
