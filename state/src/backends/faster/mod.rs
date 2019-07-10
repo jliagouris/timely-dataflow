@@ -27,7 +27,7 @@ pub struct FASTERBackend {
 }
 
 fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
-    if monotonic_serial_number % (1 << 14) == 0 {
+    if monotonic_serial_number % (1 << 10) == 0 {
         faster.checkpoint().unwrap();
     }
     if monotonic_serial_number % (1 << 8) == 0 {
