@@ -134,3 +134,9 @@ impl FASTERBackend {
         }
     }
 }
+
+impl Drop for FASTERBackend {
+    fn drop(&mut self) {
+        println!("FASTER Size: {}", self.faster.size());
+    }
+}
