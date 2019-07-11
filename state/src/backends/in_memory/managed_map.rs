@@ -1,7 +1,10 @@
 use crate::primitives::ManagedMap;
 use faster_rs::{FasterKey, FasterRmw, FasterValue};
+use std::any::Any;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 pub struct InMemoryManagedMap<K, V>
@@ -9,7 +12,10 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
-    map: HashMap<K, Rc<V>>,
+    name: String,
+    backend: Rc<RefCell<HashMap<String, Rc<Any>>>>,
+    phantom_key: PhantomData<K>,
+    phantom_value: PhantomData<V>,
 }
 
 impl<K, V> InMemoryManagedMap<K, V>
@@ -17,9 +23,16 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
-    pub fn new() -> Self {
+    pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
+        let new_map: HashMap<K, V> = HashMap::new();
+        backend
+            .borrow_mut()
+            .insert(name.to_string(), Rc::new(new_map));
         InMemoryManagedMap {
-            map: HashMap::new(),
+            name: name.to_string(),
+            backend,
+            phantom_key: PhantomData,
+            phantom_value: PhantomData,
         }
     }
 }
@@ -30,33 +43,104 @@ where
     V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {
-        self.map.insert(key, Rc::new(value));
+        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+            None => HashMap::new(),
+            Some(rc_any) => match rc_any.downcast() {
+                Ok(rc_map) => match Rc::try_unwrap(rc_map) {
+                    Ok(map) => map,
+                    Err(_) => HashMap::new(),
+                },
+                Err(_) => HashMap::new(),
+            },
+        };
+        inner_map.insert(key, Rc::new(value));
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(inner_map));
     }
 
     fn get(&self, key: &K) -> Option<Rc<V>> {
-        match self.map.get(key) {
+        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+            None => HashMap::new(),
+            Some(rc_any) => match rc_any.downcast() {
+                Ok(rc_map) => match Rc::try_unwrap(rc_map) {
+                    Ok(map) => map,
+                    Err(_) => HashMap::new(),
+                },
+                Err(_) => HashMap::new(),
+            },
+        };
+        let result = match inner_map.get(key) {
             None => None,
             Some(val) => Some(Rc::clone(val)),
-        }
+        };
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(inner_map));
+        result
     }
 
     fn remove(&mut self, key: &K) -> Option<V> {
-        match self.map.remove(key) {
+        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+            None => HashMap::new(),
+            Some(rc_any) => match rc_any.downcast() {
+                Ok(rc_map) => match Rc::try_unwrap(rc_map) {
+                    Ok(map) => map,
+                    Err(_) => HashMap::new(),
+                },
+                Err(_) => HashMap::new(),
+            },
+        };
+        let result = match inner_map.remove(&key) {
             None => None,
             Some(val) => Rc::try_unwrap(val).ok(),
-        }
+        };
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(inner_map));
+        result
     }
 
     fn rmw(&mut self, key: K, modification: V) {
-        let new_value = match self.get(&key) {
-            None => modification,
-            Some(val) => val.rmw(modification),
+        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+            None => HashMap::new(),
+            Some(rc_any) => match rc_any.downcast() {
+                Ok(rc_map) => match Rc::try_unwrap(rc_map) {
+                    Ok(map) => map,
+                    Err(_) => HashMap::new(),
+                },
+                Err(_) => HashMap::new(),
+            },
         };
-        self.insert(key, new_value);
+        let old_value = match inner_map.remove(&key) {
+            None => None,
+            Some(val) => Rc::try_unwrap(val).ok(),
+        };
+        match old_value {
+            None => inner_map.insert(key, Rc::new(modification)),
+            Some(val) => inner_map.insert(key, Rc::new(val.rmw(modification))),
+        };
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(inner_map));
     }
 
     fn contains(&self, key: &K) -> bool {
-        self.map.contains_key(key)
+        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+            None => HashMap::new(),
+            Some(rc_any) => match rc_any.downcast() {
+                Ok(rc_map) => match Rc::try_unwrap(rc_map) {
+                    Ok(map) => map,
+                    Err(_) => HashMap::new(),
+                },
+                Err(_) => HashMap::new(),
+            },
+        };
+        let result = inner_map.contains_key(key);
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(inner_map));
+        result
     }
 }
 

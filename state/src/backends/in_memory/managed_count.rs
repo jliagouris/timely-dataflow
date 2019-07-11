@@ -1,30 +1,50 @@
 use crate::primitives::ManagedCount;
+use std::any::Any;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub struct InMemoryManagedCount {
-    count: i64,
+    name: String,
+    backend: Rc<RefCell<HashMap<String, Rc<Any>>>>,
 }
 
 impl InMemoryManagedCount {
-    pub fn new() -> Self {
-        InMemoryManagedCount { count: 0 }
+    pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
+        InMemoryManagedCount {
+            name: name.to_string(),
+            backend,
+        }
     }
 }
 
 impl ManagedCount for InMemoryManagedCount {
     fn decrease(&mut self, amount: i64) {
-        self.count -= amount;
+        self.set(self.get() - amount);
     }
 
     fn increase(&mut self, amount: i64) {
-        self.count += amount;
+        self.set(self.get() + amount);
     }
 
     fn get(&self) -> i64 {
-        self.count
+        let value = match self.backend.borrow_mut().remove(&self.name) {
+            None => 0,
+            Some(any) => match any.downcast() {
+                Ok(count) => Rc::try_unwrap(count).unwrap(),
+                Err(_) => 0,
+            },
+        };
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(value));
+        value
     }
 
     fn set(&mut self, value: i64) {
-        self.count = value;
+        self.backend
+            .borrow_mut()
+            .insert(self.name.clone(), Rc::new(value));
     }
 }
 
