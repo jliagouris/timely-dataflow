@@ -36,7 +36,7 @@ fn main() {
             })
             .collect::<Vec<_>>();
 
-        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope| {
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope, _| {
             replayers
                 .replay_into(scope)
                 .count()

@@ -23,7 +23,7 @@ fn main() {
         let topic = format!("{}-{:?}", topic, worker.index());
         let producer = EventProducer::new(producer_config, topic);
 
-        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope|
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope, _|
             (0 .. count)
                 .to_stream(scope)
                 .capture_into(producer)

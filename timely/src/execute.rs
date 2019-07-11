@@ -58,7 +58,7 @@ where
     T: Send+'static,
     F: FnOnce(&mut Child<Worker<crate::communication::allocator::thread::Thread>,u64,InMemoryBackend>)->T+Send+Sync+'static
 {
-    crate::execute::execute_directly(|worker| worker.dataflow(|scope| func(scope)))
+    crate::execute::execute_directly(|worker| worker.dataflow(|scope, _| func(scope)))
 }
 
 

@@ -29,7 +29,7 @@ fn main() {
     timely::execute_from_args(args, move |worker, _state_handle| {
 
         // A dataflow for producing spans.
-        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope| {
+        worker.dataflow::<u64,_,_,InMemoryBackend>(|scope, _| {
 
             // Create a Kafka consumer.
             let consumer : BaseConsumer<DefaultConsumerContext> = consumer_config.create().expect("Couldn't create consumer");

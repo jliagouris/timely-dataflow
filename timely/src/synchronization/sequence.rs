@@ -111,7 +111,7 @@ impl<T: ExchangeData> Sequencer<T> {
         let activator_sink = activator.clone();
 
         // build a dataflow used to serialize and circulate commands
-        worker.dataflow::<Duration,_,_,InMemoryBackend>(move |dataflow| {
+        worker.dataflow::<Duration,_,_,InMemoryBackend>(move |dataflow, _| {
 
             let scope = dataflow.clone();
             let peers = dataflow.peers();

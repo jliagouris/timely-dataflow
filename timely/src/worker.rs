@@ -12,7 +12,7 @@ use crate::scheduling::{Schedule, Scheduler, Activations};
 use crate::progress::timestamp::{Refines};
 use crate::progress::SubgraphBuilder;
 use crate::progress::operate::Operate;
-use crate::dataflow::scopes::Child;
+use crate::dataflow::scopes::{Child, Scope};
 use crate::logging::TimelyLogger;
 use crate::state::{StateBackend, StateHandle};
 
@@ -350,11 +350,11 @@ impl<A: Allocate> Worker<A> {
     pub fn dataflow<T, R, F, S>(&mut self, func: F) -> R
     where
         T: Refines<()>,
-        F: FnOnce(&mut Child<Self, T, S>)->R,
+        F: FnOnce(&mut Child<Self, T, S>, &StateHandle<S>)->R,
         S: StateBackend
     {
         let logging = self.logging.borrow_mut().get("timely");
-        self.dataflow_core("Dataflow", logging, Box::new(()), |_, child| func(child))
+        self.dataflow_core("Dataflow", logging, Box::new(()), |_, child, state_handle| func(child, state_handle))
     }
 
     /// Construct a new dataflow with specific configurations.
@@ -375,7 +375,7 @@ impl<A: Allocate> Worker<A> {
     ///         "dataflow X",           // Dataflow name
     ///         None,                   // Optional logger
     ///         37,                     // Any resources
-    ///         |resources, scope| {    // Closure
+    ///         |resources, scope, state_handle| {    // Closure
     ///
     ///             // uses of `resources`, `scope`to build dataflow
     ///
@@ -386,7 +386,7 @@ impl<A: Allocate> Worker<A> {
     pub fn dataflow_core<T, R, F, V, S>(&mut self, name: &str, mut logging: Option<TimelyLogger>, mut resources: V, func: F) -> R
     where
         T: Refines<()>,
-        F: FnOnce(&mut V, &mut Child<Self, T, S>)->R,
+        F: FnOnce(&mut V, &mut Child<Self, T, S>, &StateHandle<S>)->R,
         V: Any+'static,
         S: StateBackend,
     {
@@ -403,7 +403,8 @@ impl<A: Allocate> Worker<A> {
 
         let result = {
             let mut builder = Child::new(&subscope, self.clone(), logging.clone(), state_handle);
-            func(&mut resources, &mut builder)
+            let state_handle = builder.get_state_handle().clone();
+            func(&mut resources, &mut builder, &state_handle)
         };
 
         let mut operator = subscope.into_inner().build(self);

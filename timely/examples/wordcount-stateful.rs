@@ -18,7 +18,7 @@ fn main() {
         let exchange = Exchange::new(|x: &(String, i64)| (x.0).len() as u64);
 
         // create a new input, exchange data, and inspect its output
-        worker.dataflow::<usize,_,_,InMemoryBackend>(|scope| {
+        worker.dataflow::<usize,_,_,InMemoryBackend>(|scope, _worker_state_handle| {
             input.to_stream(scope)
                  .flat_map(|(text, diff): (String, i64)|
                     text.split_whitespace()
