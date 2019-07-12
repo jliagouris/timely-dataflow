@@ -117,8 +117,8 @@ mod tests {
     use faster_rs::FasterKv;
     use std::cell::RefCell;
     use std::rc::Rc;
-    use tempfile::TempDir;
     use std::sync::Arc;
+    use tempfile::TempDir;
 
     const TABLE_SIZE: u64 = 1 << 14;
     const LOG_SIZE: u64 = 17179869184;

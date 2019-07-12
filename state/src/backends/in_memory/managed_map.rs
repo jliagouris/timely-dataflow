@@ -56,7 +56,7 @@ where
     }
 
     fn get(&self, key: &K) -> Option<Rc<V>> {
-        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+        let inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
             None => HashMap::new(),
             Some(rc_any) => match rc_any.downcast() {
                 Ok(rc_map) => match Rc::try_unwrap(rc_map) {
@@ -122,7 +122,7 @@ where
     }
 
     fn contains(&self, key: &K) -> bool {
-        let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
+        let inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
             None => HashMap::new(),
             Some(rc_any) => match rc_any.downcast() {
                 Ok(rc_map) => match Rc::try_unwrap(rc_map) {
@@ -144,19 +144,21 @@ where
 mod tests {
     use super::InMemoryManagedMap;
     use crate::primitives::ManagedMap;
-    use std::rc::Rc;
     use std::cell::RefCell;
     use std::collections::HashMap;
+    use std::rc::Rc;
 
     #[test]
     fn new_map_gets_none() {
-        let map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
+        let map: InMemoryManagedMap<String, i32> =
+            InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
         assert_eq!(map.get(&String::from("something")), None);
     }
 
     #[test]
     fn map_remove() {
-        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
+        let mut map: InMemoryManagedMap<String, i32> =
+            InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
 
         let key = String::from("something");
         let value = 42;
@@ -168,7 +170,8 @@ mod tests {
 
     #[test]
     fn map_rmw() {
-        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
+        let mut map: InMemoryManagedMap<String, i32> =
+            InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
 
         let key = String::from("something");
         let value = 32;
@@ -183,14 +186,24 @@ mod tests {
     fn map_drop() {
         let backend = Rc::new(RefCell::new(HashMap::new()));
         {
-            let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("state", Rc::clone(&backend));
+            let mut map: InMemoryManagedMap<String, i32> =
+                InMemoryManagedMap::new("state", Rc::clone(&backend));
             map.insert("hello".to_string(), 100);
             map.rmw("hello".to_string(), 50);
-            assert_eq!(Rc::new(150), map.get(&"hello".to_string()).expect("Value not rmw correctly"));
+            assert_eq!(
+                Rc::new(150),
+                map.get(&"hello".to_string())
+                    .expect("Value not rmw correctly")
+            );
         }
         {
-            let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("state", Rc::clone(&backend));
-            assert_eq!(150, map.remove(&"hello".to_string()).expect("Value dropped from backend"));
+            let mut map: InMemoryManagedMap<String, i32> =
+                InMemoryManagedMap::new("state", Rc::clone(&backend));
+            assert_eq!(
+                150,
+                map.remove(&"hello".to_string())
+                    .expect("Value dropped from backend")
+            );
         }
     }
 }

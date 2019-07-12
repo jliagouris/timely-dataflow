@@ -30,14 +30,12 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for InMemoryManagedVa
     }
 
     fn get(&self) -> Option<Rc<V>> {
-        let result: Option<V>  = match self.backend.borrow_mut().remove(&self.name) {
+        let result: Option<V> = match self.backend.borrow_mut().remove(&self.name) {
             None => None,
-            Some(value) => {
-                match value.downcast::<V>() {
-                    Ok(value) => Rc::try_unwrap(value).ok(),
-                    Err(_) => None,
-                }
-            }
+            Some(value) => match value.downcast::<V>() {
+                Ok(value) => Rc::try_unwrap(value).ok(),
+                Err(_) => None,
+            },
         };
         match result {
             None => None,
@@ -46,7 +44,7 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for InMemoryManagedVa
                 let result = Some(Rc::clone(&rc));
                 self.backend.borrow_mut().insert(self.name.clone(), rc);
                 result
-            },
+            }
         }
     }
 

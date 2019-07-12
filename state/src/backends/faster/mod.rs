@@ -30,8 +30,7 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
     if monotonic_serial_number % (1 << 20) == 0 {
         println!("Checkpoint: {:?}", faster.checkpoint().unwrap().token);
         println!("Store Size: {}", faster.size());
-    }
-    else if monotonic_serial_number % (1 << 14) == 0 {
+    } else if monotonic_serial_number % (1 << 14) == 0 {
         faster.complete_pending(true);
     } else if monotonic_serial_number % (1 << 10) == 0 {
         faster.refresh();
