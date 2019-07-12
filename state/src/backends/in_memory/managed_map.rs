@@ -149,16 +149,18 @@ mod tests {
     use super::InMemoryManagedMap;
     use crate::primitives::ManagedMap;
     use std::rc::Rc;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
 
     #[test]
     fn new_map_gets_none() {
-        let map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+        let map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
         assert_eq!(map.get(&String::from("something")), None);
     }
 
     #[test]
     fn map_remove() {
-        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
 
         let key = String::from("something");
         let value = 42;
@@ -170,7 +172,7 @@ mod tests {
 
     #[test]
     fn map_rmw() {
-        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new();
+        let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
 
         let key = String::from("something");
         let value = 32;
@@ -179,5 +181,20 @@ mod tests {
         map.insert(key.clone(), value);
         map.rmw(key.clone(), modification);
         assert_eq!(map.get(&key), Some(Rc::new(value + modification)));
+    }
+
+    #[test]
+    fn map_drop() {
+        let backend = Rc::new(RefCell::new(HashMap::new()));
+        {
+            let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("state", Rc::clone(&backend));
+            map.insert("hello".to_string(), 100);
+            map.rmw("hello".to_string(), 50);
+            assert_eq!(Rc::new(150), map.get(&"hello".to_string()).expect("Value not rmw correctly"));
+        }
+        {
+            let mut map: InMemoryManagedMap<String, i32> = InMemoryManagedMap::new("state", Rc::clone(&backend));
+            assert_eq!(150, map.remove(&"hello".to_string()).expect("Value dropped from backend"));
+        }
     }
 }

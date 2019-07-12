@@ -118,6 +118,7 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
     use tempfile::TempDir;
+    use std::sync::Arc;
 
     const TABLE_SIZE: u64 = 1 << 14;
     const LOG_SIZE: u64 = 17179869184;
@@ -126,7 +127,7 @@ mod tests {
     fn map_insert_get() {
         let tmp_dir = TempDir::new().unwrap();
         let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
@@ -141,7 +142,7 @@ mod tests {
     fn map_contains() {
         let tmp_dir = TempDir::new().unwrap();
         let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
@@ -156,7 +157,7 @@ mod tests {
     fn map_rmw() {
         let tmp_dir = TempDir::new().unwrap();
         let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
@@ -173,7 +174,7 @@ mod tests {
     fn map_remove_does_not_remove() {
         let tmp_dir = TempDir::new().unwrap();
         let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;

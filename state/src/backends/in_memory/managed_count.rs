@@ -52,30 +52,33 @@ impl ManagedCount for InMemoryManagedCount {
 mod tests {
     use super::InMemoryManagedCount;
     use crate::primitives::ManagedCount;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::rc::Rc;
 
     #[test]
     fn new_count_returns_0() {
-        let count = InMemoryManagedCount::new();
+        let count = InMemoryManagedCount::new("", Rc::new(RefCell::new(HashMap::new())));
         assert_eq!(count.get(), 0);
     }
 
     #[test]
     fn count_can_increase() {
-        let mut count = InMemoryManagedCount::new();
+        let mut count = InMemoryManagedCount::new("", Rc::new(RefCell::new(HashMap::new())));
         count.increase(42);
         assert_eq!(count.get(), 42);
     }
 
     #[test]
     fn count_can_decrease() {
-        let mut count = InMemoryManagedCount::new();
+        let mut count = InMemoryManagedCount::new("", Rc::new(RefCell::new(HashMap::new())));
         count.decrease(42);
         assert_eq!(count.get(), -42);
     }
 
     #[test]
     fn count_can_set_directly() {
-        let mut count = InMemoryManagedCount::new();
+        let mut count = InMemoryManagedCount::new("", Rc::new(RefCell::new(HashMap::new())));
         count.set(42);
         assert_eq!(count.get(), 42);
     }

@@ -80,6 +80,7 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
     use tempfile::TempDir;
+    use std::sync::Arc;
 
     const TABLE_SIZE: u64 = 1 << 14;
     const LOG_SIZE: u64 = 17179869184;
@@ -88,7 +89,7 @@ mod tests {
     fn value_set_get() {
         let tmp_dir = TempDir::new().unwrap();
         let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let value: u64 = 1337;
@@ -102,7 +103,7 @@ mod tests {
     fn value_rmw() {
         let tmp_dir = TempDir::new().unwrap();
         let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Rc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let value: u64 = 1337;
