@@ -24,10 +24,6 @@ where
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
-        let new_map: HashMap<K, V> = HashMap::new();
-        backend
-            .borrow_mut()
-            .insert(name.to_string(), Rc::new(new_map));
         InMemoryManagedMap {
             name: name.to_string(),
             backend,
@@ -83,7 +79,7 @@ where
     fn remove(&mut self, key: &K) -> Option<V> {
         let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
             None => HashMap::new(),
-            Some(rc_any) => match rc_any.downcast() {
+            Some(rc_any) => match rc_any.downcast::<HashMap<K, Rc<V>>>() {
                 Ok(rc_map) => match Rc::try_unwrap(rc_map) {
                     Ok(map) => map,
                     Err(_) => HashMap::new(),
