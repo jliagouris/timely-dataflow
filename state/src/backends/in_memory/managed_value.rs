@@ -30,14 +30,23 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for InMemoryManagedVa
     }
 
     fn get(&self) -> Option<Rc<V>> {
-        match self.backend.borrow_mut().remove(&self.name) {
+        let result: Option<V>  = match self.backend.borrow_mut().remove(&self.name) {
             None => None,
             Some(value) => {
-                self.backend
-                    .borrow_mut()
-                    .insert(self.name.clone(), Rc::clone(&value));
-                Some(Rc::clone(&value.downcast().unwrap()))
+                match value.downcast::<V>() {
+                    Ok(value) => Rc::try_unwrap(value).ok(),
+                    Err(_) => None,
+                }
             }
+        };
+        match result {
+            None => None,
+            Some(val) => {
+                let rc = Rc::new(val);
+                let result = Some(Rc::clone(&rc));
+                self.backend.borrow_mut().insert(self.name.clone(), rc);
+                result
+            },
         }
     }
 
@@ -90,6 +99,23 @@ mod tests {
         value.set(32);
         value.rmw(10);
         assert_eq!(value.take(), Some(42));
+    }
+
+    #[test]
+    fn value_drop() {
+        let backend = Rc::new(RefCell::new(HashMap::new()));
+        {
+            let mut value: InMemoryManagedValue<i32> =
+                InMemoryManagedValue::new("", Rc::clone(&backend));
+            value.set(32);
+            value.rmw(10);
+            assert_eq!(value.get(), Some(Rc::new(42)));
+        }
+        {
+            let mut value: InMemoryManagedValue<i32> =
+                InMemoryManagedValue::new("", Rc::clone(&backend));
+            assert_eq!(value.take(), Some(42));
+        }
     }
 
 }
