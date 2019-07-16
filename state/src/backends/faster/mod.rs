@@ -80,7 +80,7 @@ impl StateBackend for FASTERBackend {
         let faster_kv = Arc::new(
             FasterKv::new(
                 1 << 15,
-                4 * 1024 * 1024 * 1024, // 4GB
+                3 * 1024 * 1024 * 1024, // 3GB
                 faster_directory.path().to_str().unwrap().to_owned(),
             )
             .unwrap(),
