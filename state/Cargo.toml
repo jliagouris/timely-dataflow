@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 bincode = "1.1.2"
-faster-rs = "0.8"
+faster-rs = { git = "https://github.com/faster-rs/faster-rs", branch = "print-size" }
 tempfile = "3"
