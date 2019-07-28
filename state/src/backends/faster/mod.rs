@@ -18,6 +18,7 @@ use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use tempfile::TempDir;
+use std::time::Duration;
 
 #[allow(dead_code)]
 pub struct FASTERBackend {
@@ -97,6 +98,11 @@ impl StateBackend for FASTERBackend {
             .unwrap(),
         );
         faster_kv.start_session();
+        let faster_kv_clone = Arc::clone(&faster_kv);
+        std::thread::spawn(move || {
+           std::thread::sleep(Duration::from_secs(30));
+            faster_kv_clone.checkpoint();
+        });
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),
