@@ -17,8 +17,8 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use tempfile::TempDir;
 use std::time::Duration;
+use tempfile::TempDir;
 
 #[allow(dead_code)]
 pub struct FASTERBackend {
@@ -97,8 +97,12 @@ impl StateBackend for FASTERBackend {
         faster_kv.start_session();
         let faster_kv_clone = Arc::clone(&faster_kv);
         std::thread::spawn(move || {
-           std::thread::sleep(Duration::from_secs(30));
-            faster_kv_clone.checkpoint();
+            std::thread::sleep(Duration::from_secs(30));
+            let checkpoint = faster_kv_clone.checkpoint();
+            match checkpoint {
+                Ok(c) => println!("Checkpoint token: {}", c.token),
+                Err(_) => println!("Checkpoint failed!"),
+            }
         });
         FASTERBackend {
             faster: faster_kv,
