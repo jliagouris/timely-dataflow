@@ -97,11 +97,13 @@ impl StateBackend for FASTERBackend {
         faster_kv.start_session();
         let faster_kv_clone = Arc::clone(&faster_kv);
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(30));
-            let checkpoint = faster_kv_clone.checkpoint();
-            match checkpoint {
-                Ok(c) => println!("Checkpoint token: {}", c.token),
-                Err(_) => println!("Checkpoint failed!"),
+            loop {
+                std::thread::sleep(Duration::from_secs(30));
+                let checkpoint = faster_kv_clone.checkpoint();
+                match checkpoint {
+                    Ok(c) => println!("Checkpoint token: {}", c.token),
+                    Err(_) => println!("Checkpoint failed!"),
+                }
             }
         });
         FASTERBackend {
