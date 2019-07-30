@@ -42,9 +42,6 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
         if monotonic_serial_number % (1 << 6) == 0 {
             faster.complete_pending(false);
-            if monotonic_serial_number % (1 << 17) == 0 {
-                println!("Checkpoint: {}", faster.checkpoint().unwrap().token);
-            }
         }
     }
 }
@@ -87,21 +84,7 @@ fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
 
 impl StateBackend for FASTERNodeBackend {
     fn new() -> Self {
-        let faster_directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
-        // TODO: check sizing
-        let faster_kv = Arc::new(
-            FasterKv::new(
-                1 << 15,
-                3 * 1024 * 1024 * 1024, // 3GB
-                faster_directory.path().to_str().unwrap().to_owned(),
-            )
-            .unwrap(),
-        );
-        FASTERNodeBackend {
-            faster: faster_kv,
-            monotonic_serial_number: Rc::new(RefCell::new(1)),
-            faster_directory: Arc::new(faster_directory),
-        }
+        unimplemented!();
     }
 
     fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {

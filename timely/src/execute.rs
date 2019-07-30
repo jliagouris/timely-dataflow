@@ -10,6 +10,7 @@ use faster_rs::FasterKv;
 use tempfile::TempDir;
 use std::sync::Arc;
 use timely_state::backends::FASTERNodeBackend;
+use std::time::Duration;
 
 /// Executes a single-threaded timely dataflow computation.
 ///
@@ -191,6 +192,18 @@ where
         12 * 1024 * 1024 * 1024, // 12GB
         faster_directory.path().to_str().unwrap().to_owned(),
     ).unwrap());
+
+    let faster_kv_clone = Arc::clone(&faster_kv);
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(Duration::from_secs(30));
+            let checkpoint = faster_kv_clone.checkpoint();
+            match checkpoint {
+                Ok(c) => println!("Checkpoint token: {}", c.token),
+                Err(_) => println!("Checkpoint failed!"),
+            }
+        }
+    });
 
     initialize_from(allocators, other, move |allocator| {
 
