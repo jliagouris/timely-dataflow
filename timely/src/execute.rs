@@ -187,7 +187,7 @@ where
     // TODO: check sizing
     let faster_kv = Arc::new(FasterKv::new(
         1 << 15,
-        2 * 1024 * 1024 * 1024, // 2GB
+        12 * 1024 * 1024 * 1024, // 12GB
         faster_directory.path().to_str().unwrap().to_owned(),
     ).unwrap());
 
