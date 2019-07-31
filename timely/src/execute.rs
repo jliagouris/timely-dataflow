@@ -236,7 +236,6 @@ where
         let result = func(&mut worker, state_handle);
         while worker.step_or_park(None) { }
 
-        faster_kv.stop_session();
         result
     })
 }
