@@ -196,7 +196,7 @@ where
     let faster_kv_clone = Arc::clone(&faster_kv);
     std::thread::spawn(move || {
         loop {
-            std::thread::sleep(Duration::from_secs(30));
+            std::thread::sleep(Duration::from_secs(15));
             let checkpoint = faster_kv_clone.checkpoint();
             match checkpoint {
                 Ok(c) => println!("Checkpoint token: {}", c.token),
@@ -236,7 +236,6 @@ where
         let result = func(&mut worker, state_handle);
         while worker.step_or_park(None) { }
 
-        faster_kv.complete_pending(true);
         faster_kv.stop_session();
         result
     })
