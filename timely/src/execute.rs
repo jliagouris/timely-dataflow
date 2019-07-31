@@ -193,7 +193,6 @@ where
         faster_directory.path().to_str().unwrap().to_owned(),
     ).unwrap());
 
-    /*
     let faster_kv_clone = Arc::clone(&faster_kv);
     std::thread::spawn(move || {
         loop {
@@ -205,7 +204,6 @@ where
             }
         }
     });
-    */
 
     initialize_from(allocators, other, move |allocator| {
 
