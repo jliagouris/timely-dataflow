@@ -38,10 +38,17 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
     }
     */
-    if monotonic_serial_number % (1 << 4) == 0 {
+    if monotonic_serial_number % (1 << 8) == 0 {
         faster.refresh();
-        if monotonic_serial_number % (1 << 6) == 0 {
+        if monotonic_serial_number % (1 << 12) == 0 {
             faster.complete_pending(false);
+            if monotonic_serial_number % (1 << 17) == 0 {
+                let checkpoint = faster.checkpoint();
+                match checkpoint {
+                    Ok(c) => println!("Checkpoint token: {}", c.token),
+                    Err(_) => println!("Checkpoint failed!"),
+                }
+            }
         }
     }
 }
