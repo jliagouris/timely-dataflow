@@ -202,6 +202,7 @@ where
                 Ok(c) => println!("Checkpoint token: {}", c.token),
                 Err(_) => println!("Checkpoint failed!"),
             }
+            println!("Store Size: {}", faster_kv_clone.size());
         }
     });
 
