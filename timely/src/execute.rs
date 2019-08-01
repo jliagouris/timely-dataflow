@@ -193,6 +193,7 @@ where
         faster_directory.path().to_str().unwrap().to_owned(),
     ).unwrap());
 
+    /*
     let faster_kv_clone = Arc::clone(&faster_kv);
     std::thread::spawn(move || {
         loop {
@@ -205,6 +206,7 @@ where
             println!("Store Size: {}", faster_kv_clone.size());
         }
     });
+    */
 
     initialize_from(allocators, other, move |allocator| {
 
