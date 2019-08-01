@@ -45,7 +45,7 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
     else if monotonic_serial_number % (1 << 2) == 0 {
         faster.refresh();
         if monotonic_serial_number % (1 << 10) == 0 {
-            faster.complete_pending(true);
+            faster.complete_pending(false);
         }
     }
 }
