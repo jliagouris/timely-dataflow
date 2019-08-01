@@ -38,14 +38,14 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
     }
     */
-    if monotonic_serial_number % (1 << 2) == 0 {
+    if monotonic_serial_number % (1 << 12) == 0 {
+        println!("{}", faster.checkpoint().unwrap().token);
+        println!("Size: {}", faster.size());
+    }
+    else if monotonic_serial_number % (1 << 2) == 0 {
         faster.refresh();
         if monotonic_serial_number % (1 << 4) == 0 {
             faster.complete_pending(true);
-            if monotonic_serial_number % (1 << 20) == 0 {
-                println!("{}", faster.checkpoint().unwrap().token);
-                println!("Size: {}", faster.size());
-            }
         }
     }
 }
