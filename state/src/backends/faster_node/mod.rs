@@ -38,7 +38,7 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
     }
     */
-    if monotonic_serial_number % (1 << 12) == 0 {
+    if monotonic_serial_number % (1 << 15) == 0 {
         println!("{}", faster.checkpoint().unwrap().token);
         println!("Size: {}", faster.size());
     }
