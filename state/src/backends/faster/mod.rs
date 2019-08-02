@@ -24,7 +24,6 @@ use tempfile::TempDir;
 pub struct FASTERBackend {
     faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
-    faster_directory: Arc<TempDir>,
 }
 
 fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
@@ -94,7 +93,7 @@ impl StateBackend for FASTERBackend {
             FasterKv::new(
                 1 << 15,
                 3 * 1024 * 1024 * 1024, // 3GB
-                faster_directory.path().to_str().unwrap().to_owned(),
+                faster_directory.into_path().to_str().unwrap().to_owned(),
             )
             .unwrap(),
         );
@@ -116,7 +115,6 @@ impl StateBackend for FASTERBackend {
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),
-            faster_directory: Arc::new(faster_directory),
         }
     }
 
@@ -149,15 +147,5 @@ impl StateBackend for FASTERBackend {
             Rc::clone(&self.monotonic_serial_number),
             name,
         ))
-    }
-}
-
-impl FASTERBackend {
-    pub fn new_from_existing(faster_kv: &Arc<FasterKv>, faster_directory: &Arc<TempDir>) -> Self {
-        FASTERBackend {
-            faster: Arc::clone(faster_kv),
-            monotonic_serial_number: Rc::new(RefCell::new(1)),
-            faster_directory: Arc::clone(faster_directory),
-        }
     }
 }
