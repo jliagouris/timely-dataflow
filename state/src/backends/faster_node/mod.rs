@@ -28,25 +28,14 @@ pub struct FASTERNodeBackend {
 }
 
 fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
-    /*
-    if monotonic_serial_number % (1 << 17) == 0 {
-        faster.checkpoint();
-        println!("Size: {}", faster.size());
-    } else if monotonic_serial_number % (1 << 6) == 0 {
-        faster.complete_pending(false);
-    } else if monotonic_serial_number % (1 << 4) == 0 {
-        faster.refresh();
-    }
-    */
-    if monotonic_serial_number % (1 << 17) == 0 {
-        println!("{}", faster.checkpoint().unwrap().token);
-        println!("Size: {}", faster.size());
-    }
-    else if monotonic_serial_number % (1 << 2) == 0 {
+    if monotonic_serial_number % (1 << 4) == 0 {
         faster.refresh();
         if monotonic_serial_number % (1 << 10) == 0 {
-            faster.complete_pending(false);
+            faster.complete_pending(true);
         }
+    }
+    if monotonic_serial_number % (1 << 20) == 0 {
+        println!("Size: {}", faster.size());
     }
 }
 
