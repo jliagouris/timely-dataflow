@@ -44,6 +44,9 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
             faster.complete_pending(true);
         }
     }
+    if monotonic_serial_number % (1 << 20) == 0 {
+        println!("Size: {}", faster.size());
+    }
 }
 
 fn faster_upsert<K: FasterKey, V: FasterValue>(
