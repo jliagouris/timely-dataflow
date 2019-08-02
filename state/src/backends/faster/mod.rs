@@ -38,9 +38,13 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
     }
     */
-    if monotonic_serial_number % (1 << 4) == 0 {
+    if monotonic_serial_number % (1 << 17) == 0 {
+        println!("{}", faster.checkpoint().unwrap().token);
+        println!("Size: {}", faster.size());
+    }
+    else if monotonic_serial_number % (1 << 2) == 0 {
         faster.refresh();
-        if monotonic_serial_number % (1 << 6) == 0 {
+        if monotonic_serial_number % (1 << 10) == 0 {
             faster.complete_pending(false);
         }
     }
@@ -95,6 +99,7 @@ impl StateBackend for FASTERBackend {
             .unwrap(),
         );
         faster_kv.start_session();
+        /*
         let faster_kv_clone = Arc::clone(&faster_kv);
         std::thread::spawn(move || {
             loop {
@@ -107,6 +112,7 @@ impl StateBackend for FASTERBackend {
                 println!("Store Size: {}", faster_kv_clone.size());
             }
         });
+        */
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),
