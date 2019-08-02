@@ -87,7 +87,7 @@ fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
 
 impl StateBackend for FASTERBackend {
     fn new() -> Self {
-        let faster_directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
+        let faster_directory = Arc::new(TempDir::new_in(".").expect("Unable to create directory for FASTER"));
         println!("FASTER Directory: {:?}", faster_directory);
         // TODO: check sizing
         let faster_kv = Arc::new(
@@ -116,7 +116,7 @@ impl StateBackend for FASTERBackend {
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),
-            faster_directory: Arc::new(faster_directory),
+            faster_directory: faster_directory,
         }
     }
 
