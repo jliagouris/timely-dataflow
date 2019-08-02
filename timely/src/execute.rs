@@ -234,7 +234,7 @@ where
 
         faster_kv.start_session();
         let faster_backend = Rc::new(FASTERNodeBackend::new_from_existing(&faster_kv, &faster_directory));
-        let state_handle = StateHandle::new(faster_backend, &worker.index().to_string());
+        let state_handle = StateHandle::new(faster_backend, "");
 
         let result = func(&mut worker, state_handle);
         while worker.step_or_park(None) { }
