@@ -38,7 +38,7 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
         faster.refresh();
     }
     */
-    if monotonic_serial_number % (1 << 6) == 0 {
+    if monotonic_serial_number % (1 << 4) == 0 {
         faster.refresh();
         if monotonic_serial_number % (1 << 10) == 0 {
             faster.complete_pending(true);
@@ -88,6 +88,7 @@ fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
 impl StateBackend for FASTERBackend {
     fn new() -> Self {
         let faster_directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
+        println!("FASTER Directory: {:?}", faster_directory);
         // TODO: check sizing
         let faster_kv = Arc::new(
             FasterKv::new(
