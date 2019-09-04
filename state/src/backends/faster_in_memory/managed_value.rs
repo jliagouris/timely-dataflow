@@ -74,7 +74,7 @@ mod tests {
     extern crate faster_rs;
     extern crate tempfile;
 
-    use crate::backends::faster::FASTERManagedValue;
+    use super::FASTERManagedValue;
     use crate::primitives::ManagedValue;
     use faster_rs::FasterKv;
     use std::cell::RefCell;

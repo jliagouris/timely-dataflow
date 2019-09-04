@@ -112,7 +112,7 @@ mod tests {
     extern crate faster_rs;
     extern crate tempfile;
 
-    use crate::backends::faster::FASTERManagedMap;
+    use super::FASTERManagedMap;
     use crate::primitives::ManagedMap;
     use faster_rs::FasterKv;
     use std::cell::RefCell;
