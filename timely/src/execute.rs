@@ -9,7 +9,6 @@ use std::rc::Rc;
 use faster_rs::{FasterKv, FasterKvBuilder};
 use tempfile::TempDir;
 use std::sync::Arc;
-use timely_state::backends::FASTERNodeBackend;
 use std::time::Duration;
 
 /// Executes a single-threaded timely dataflow computation.
@@ -151,7 +150,7 @@ where
 pub fn execute<T, F>(mut config: Configuration, func: F) -> Result<WorkerGuards<T>,String>
 where
     T:Send+'static,
-    F: Fn(&mut Worker<Allocator>, StateHandle<FASTERNodeBackend>)->T+Send+Sync+'static {
+    F: Fn(&mut Worker<Allocator>, StateHandle<FASTERBackend>)->T+Send+Sync+'static {
 
     if let Configuration::Cluster { ref mut log_fn, .. } = config {
 
@@ -218,7 +217,7 @@ where
         }
 
         faster_kv.start_session();
-        let faster_backend = Rc::new(FASTERNodeBackend::new_from_existing(&faster_kv, &faster_directory));
+        let faster_backend = Rc::new(FASTERBackend::new_from_existing(&faster_kv));
         let state_handle = StateHandle::new(faster_backend, "");
 
         let result = func(&mut worker, state_handle);
@@ -280,7 +279,7 @@ where
 pub fn execute_from_args<I, T, F>(iter: I, func: F) -> Result<WorkerGuards<T>,String>
     where I: Iterator<Item=String>,
           T:Send+'static,
-          F: Fn(&mut Worker<Allocator>, StateHandle<FASTERNodeBackend>)->T+Send+Sync+'static, {
+          F: Fn(&mut Worker<Allocator>, StateHandle<FASTERBackend>)->T+Send+Sync+'static, {
     let configuration = Configuration::from_args(iter)?;
     execute(configuration, func)
 }
@@ -306,7 +305,7 @@ pub fn execute_from<A, T, F>(builders: Vec<A>, others: Box<::std::any::Any>, fun
 where
     A: AllocateBuilder+'static,
     T: Send+'static,
-    F: Fn(&mut Worker<<A as AllocateBuilder>::Allocator>, StateHandle<FASTERNodeBackend>)->T+Send+Sync+'static {
+    F: Fn(&mut Worker<<A as AllocateBuilder>::Allocator>, StateHandle<FASTERBackend>)->T+Send+Sync+'static {
     let faster_directory = Arc::new(TempDir::new_in(".").expect("Unable to create directory for FASTER"));
     let faster_directory_string = faster_directory.path().to_str().unwrap();
 
@@ -318,7 +317,7 @@ where
     initialize_from(builders, others, move |allocator| {
         let mut worker = Worker::new(allocator);
         faster_kv.start_session();
-        let faster_backend = Rc::new(FASTERNodeBackend::new_from_existing(&faster_kv, &faster_directory));
+        let faster_backend = Rc::new(FASTERBackend::new_from_existing(&faster_kv));
         let state_handle = StateHandle::new(faster_backend, &worker.index().to_string());
 
         let result = func(&mut worker, state_handle);

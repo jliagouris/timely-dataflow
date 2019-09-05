@@ -3,25 +3,31 @@ extern crate metrics;
 extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use std::hash::Hash;
 use std::rc::Rc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 pub mod backends;
 pub mod primitives;
+mod impls;
+
+pub trait Rmw {
+    fn rmw(&self, modification: Self) -> Self;
+}
 
 pub trait StateBackend: 'static {
     fn new() -> Self;
 
     fn get_managed_count(&self, name: &str) -> Box<ManagedCount>;
-    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+    fn get_managed_value<V: 'static + DeserializeOwned + Serialize + Rmw>(
         &self,
         name: &str,
     ) -> Box<ManagedValue<V>>;
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue + FasterRmw;
+        K: 'static + Serialize + Hash + Eq,
+        V: 'static + DeserializeOwned + Serialize + Rmw;
 }
 
 pub struct StateHandle<S: StateBackend> {
@@ -59,15 +65,15 @@ impl<S: StateBackend> StateHandle<S> {
 
     pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue + FasterRmw,
+        K:  'static + Serialize + Hash + Eq,
+        V:  'static + DeserializeOwned + Serialize + Rmw,
     {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
         self.backend.get_managed_map(&physical_name)
     }
 
-    pub fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+    pub fn get_managed_value<V: 'static + DeserializeOwned + Serialize + Rmw>(
         &self,
         name: &str,
     ) -> Box<ManagedValue<V>> {

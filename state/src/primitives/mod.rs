@@ -1,6 +1,8 @@
-use faster_rs::{FasterKey, FasterRmw, FasterValue};
+use crate::Rmw;
 use std::hash::Hash;
 use std::rc::Rc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 pub trait ManagedCount {
     fn decrease(&mut self, amount: i64);
@@ -9,7 +11,7 @@ pub trait ManagedCount {
     fn set(&mut self, value: i64);
 }
 
-pub trait ManagedValue<V: 'static + FasterValue + FasterRmw> {
+pub trait ManagedValue<V: 'static + DeserializeOwned + Serialize + Rmw> {
     fn set(&mut self, value: V);
     fn get(&self) -> Option<Rc<V>>;
     fn take(&mut self) -> Option<V>;
@@ -18,8 +20,8 @@ pub trait ManagedValue<V: 'static + FasterValue + FasterRmw> {
 
 pub trait ManagedMap<K, V>
 where
-    K: FasterKey + Hash + Eq,
-    V: 'static + FasterValue + FasterRmw,
+    K: 'static + Serialize + Hash + Eq,
+    V: 'static + DeserializeOwned + Serialize + Rmw,
 {
     fn insert(&mut self, key: K, value: V);
     fn get(&self, key: &K) -> Option<Rc<V>>;

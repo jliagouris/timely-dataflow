@@ -1,9 +1,11 @@
 use crate::primitives::ManagedMap;
-use faster_rs::{FasterKey, FasterRmw, FasterValue};
+use crate::Rmw;
 use rocksdb::{WriteBatch, DB};
 use std::hash::Hash;
 use std::rc::Rc;
 use std::time::Instant;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 pub struct RocksDBManagedMap {
     db: Rc<DB>,
@@ -24,7 +26,7 @@ impl RocksDBManagedMap {
         }
     }
 
-    fn prefix_key<K: 'static + FasterKey + Hash + Eq>(&self, key: &K) -> Vec<u8> {
+    fn prefix_key<K: Serialize>(&self, key: &K) -> Vec<u8> {
         let start = Instant::now();
         let mut serialised_key = bincode::serialize(key).unwrap();
         let end = Instant::now();
@@ -39,8 +41,8 @@ impl RocksDBManagedMap {
 
 impl<K, V> ManagedMap<K, V> for RocksDBManagedMap
 where
-    K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue + FasterRmw,
+    K: 'static + Serialize + Hash + Eq,
+    V: 'static + DeserializeOwned + Serialize + Rmw,
 {
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);

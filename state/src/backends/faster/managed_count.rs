@@ -27,39 +27,32 @@ impl FASTERManagedCount {
 
 impl ManagedCount for FASTERManagedCount {
     fn decrease(&mut self, amount: i64) {
-        faster_rmw(
+        faster_rmw::<_,_,i64>(
             &self.faster,
             &self.name,
-            &-amount,
+            &bincode::serialize(&(-amount as i64)).unwrap(),
             &self.monotonic_serial_number,
         );
     }
 
     fn increase(&mut self, amount: i64) {
-        faster_rmw(
+        faster_rmw::<_,_,i64>(
             &self.faster,
             &self.name,
-            &amount,
+            &bincode::serialize(&amount).unwrap(),
             &self.monotonic_serial_number,
         );
     }
 
     fn get(&self) -> i64 {
-        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
-        if status != status::OK {
-            return 0;
-        }
-        return match recv.recv() {
-            Ok(count) => count,
-            Err(_) => 0,
-        };
+        faster_read(&self.faster, &self.name, &self.monotonic_serial_number).unwrap_or(0)
     }
 
     fn set(&mut self, value: i64) {
         faster_upsert(
             &self.faster,
             &self.name,
-            &value,
+            &bincode::serialize(&value).unwrap(),
             &self.monotonic_serial_number,
         );
     }

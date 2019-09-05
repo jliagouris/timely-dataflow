@@ -1,42 +1,34 @@
 use crate::primitives::ManagedMap;
-use faster_rs::{FasterKey, FasterRmw, FasterValue};
+use crate::Rmw;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-pub struct InMemoryManagedMap<K, V>
-where
-    K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue + FasterRmw,
+pub struct InMemoryManagedMap
 {
     name: String,
     backend: Rc<RefCell<HashMap<String, Rc<Any>>>>,
-    phantom_key: PhantomData<K>,
-    phantom_value: PhantomData<V>,
 }
 
-impl<K, V> InMemoryManagedMap<K, V>
-where
-    K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue + FasterRmw,
+impl InMemoryManagedMap
 {
     pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
         InMemoryManagedMap {
             name: name.to_string(),
             backend,
-            phantom_key: PhantomData,
-            phantom_value: PhantomData,
         }
     }
 }
 
-impl<K, V> ManagedMap<K, V> for InMemoryManagedMap<K, V>
+impl<K, V> ManagedMap<K, V> for InMemoryManagedMap
 where
-    K: 'static + FasterKey + Hash + Eq,
-    V: 'static + FasterValue + FasterRmw,
+    K: 'static + Serialize + Hash + Eq,
+    V: 'static + DeserializeOwned + Serialize + Rmw,
 {
     fn insert(&mut self, key: K, value: V) {
         let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
@@ -149,15 +141,8 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
-    fn new_map_gets_none() {
-        let map: InMemoryManagedMap<String, i32> =
-            InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
-        assert_eq!(map.get(&String::from("something")), None);
-    }
-
-    #[test]
     fn map_remove() {
-        let mut map: InMemoryManagedMap<String, i32> =
+        let mut map: InMemoryManagedMap =
             InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
 
         let key = String::from("something");
@@ -165,12 +150,13 @@ mod tests {
 
         map.insert(key.clone(), value);
         assert_eq!(map.remove(&key), Some(value));
-        assert_eq!(map.get(&key), None);
+        let get: Option<Rc<i32>> = map.get(&key);
+        assert_eq!(get, None);
     }
 
     #[test]
     fn map_rmw() {
-        let mut map: InMemoryManagedMap<String, i32> =
+        let mut map: InMemoryManagedMap =
             InMemoryManagedMap::new("", Rc::new(RefCell::new(HashMap::new())));
 
         let key = String::from("something");
@@ -186,7 +172,7 @@ mod tests {
     fn map_drop() {
         let backend = Rc::new(RefCell::new(HashMap::new()));
         {
-            let mut map: InMemoryManagedMap<String, i32> =
+            let mut map: InMemoryManagedMap =
                 InMemoryManagedMap::new("state", Rc::clone(&backend));
             map.insert("hello".to_string(), 100);
             map.rmw("hello".to_string(), 50);
@@ -197,7 +183,7 @@ mod tests {
             );
         }
         {
-            let mut map: InMemoryManagedMap<String, i32> =
+            let mut map: InMemoryManagedMap =
                 InMemoryManagedMap::new("state", Rc::clone(&backend));
             assert_eq!(
                 150,

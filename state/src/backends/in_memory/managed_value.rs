@@ -1,28 +1,27 @@
 use crate::primitives::ManagedValue;
-use faster_rs::{FasterRmw, FasterValue};
+use crate::Rmw;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::rc::Rc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-pub struct InMemoryManagedValue<V: FasterValue + FasterRmw> {
+pub struct InMemoryManagedValue {
     name: String,
     backend: Rc<RefCell<HashMap<String, Rc<Any>>>>,
-    phantom: PhantomData<V>,
 }
 
-impl<V: 'static + FasterValue + FasterRmw> InMemoryManagedValue<V> {
+impl InMemoryManagedValue {
     pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
         InMemoryManagedValue {
             name: name.to_string(),
             backend,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for InMemoryManagedValue<V> {
+impl<V: 'static + DeserializeOwned + Serialize + Rmw> ManagedValue<V> for InMemoryManagedValue {
     fn set(&mut self, value: V) {
         self.backend
             .borrow_mut()
@@ -59,10 +58,11 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for InMemoryManagedVa
     }
 
     fn rmw(&mut self, modification: V) {
-        match self.take() {
-            None => self.set(modification),
-            Some(value) => self.set(value.rmw(modification)),
-        }
+        let val: Option<V> = self.take();
+        self.set(match val {
+            None => modification,
+            Some(value) => value.rmw(modification),
+        });
     }
 }
 
@@ -76,14 +76,14 @@ mod tests {
 
     #[test]
     fn new_value_contains_none() {
-        let value: InMemoryManagedValue<i32> =
+        let value: InMemoryManagedValue =
             InMemoryManagedValue::new("", Rc::new(RefCell::new(HashMap::new())));
-        assert_eq!(value.get(), None);
+        assert!(value.get().is_none());
     }
 
     #[test]
     fn value_take_removes_value() {
-        let mut value: InMemoryManagedValue<i32> =
+        let mut value: InMemoryManagedValue =
             InMemoryManagedValue::new("", Rc::new(RefCell::new(HashMap::new())));
         value.set(42);
         assert_eq!(value.take(), Some(42));
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn value_rmw() {
-        let mut value: InMemoryManagedValue<i32> =
+        let mut value: InMemoryManagedValue =
             InMemoryManagedValue::new("", Rc::new(RefCell::new(HashMap::new())));
         value.set(32);
         value.rmw(10);
@@ -103,14 +103,14 @@ mod tests {
     fn value_drop() {
         let backend = Rc::new(RefCell::new(HashMap::new()));
         {
-            let mut value: InMemoryManagedValue<i32> =
+            let mut value: InMemoryManagedValue =
                 InMemoryManagedValue::new("", Rc::clone(&backend));
             value.set(32);
             value.rmw(10);
             assert_eq!(value.get(), Some(Rc::new(42)));
         }
         {
-            let mut value: InMemoryManagedValue<i32> =
+            let mut value: InMemoryManagedValue =
                 InMemoryManagedValue::new("", Rc::clone(&backend));
             assert_eq!(value.take(), Some(42));
         }

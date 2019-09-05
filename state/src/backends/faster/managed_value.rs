@@ -1,19 +1,20 @@
 use crate::backends::faster::{faster_read, faster_rmw, faster_upsert};
 use crate::primitives::ManagedValue;
-use faster_rs::{status, FasterKv, FasterRmw, FasterValue};
+use crate::Rmw;
+use faster_rs::FasterKv;
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-pub struct FASTERManagedValue<V: 'static + FasterValue + FasterRmw> {
+pub struct FASTERManagedValue {
     faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     name: String,
-    value: PhantomData<V>,
 }
 
-impl<V: 'static + FasterValue + FasterRmw> FASTERManagedValue<V> {
+impl FASTERManagedValue {
     pub fn new(
         faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
@@ -23,47 +24,33 @@ impl<V: 'static + FasterValue + FasterRmw> FASTERManagedValue<V> {
             faster,
             monotonic_serial_number,
             name: name.to_owned(),
-            value: PhantomData,
         }
     }
 }
 
-impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for FASTERManagedValue<V> {
+impl<V: 'static + DeserializeOwned + Serialize + Rmw> ManagedValue<V> for FASTERManagedValue {
     fn set(&mut self, value: V) {
         faster_upsert(
             &self.faster,
             &self.name,
-            &value,
+            &bincode::serialize(&value).unwrap(),
             &self.monotonic_serial_number,
         );
     }
     fn get(&self) -> Option<Rc<V>> {
-        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
-        if status != status::OK {
-            return None;
-        }
-        return match recv.recv() {
-            Ok(val) => Some(Rc::new(val)),
-            Err(_) => None,
-        };
+        let val = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
+        val.map(|v| Rc::new(v))
     }
 
     fn take(&mut self) -> Option<V> {
-        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
-        if status != status::OK {
-            return None;
-        }
-        return match recv.recv() {
-            Ok(val) => Some(val),
-            Err(_) => None,
-        };
+        faster_read(&self.faster, &self.name, &self.monotonic_serial_number)
     }
 
     fn rmw(&mut self, modification: V) {
-        faster_rmw(
+        faster_rmw::<_,_,V>(
             &self.faster,
             &self.name,
-            &modification,
+            &bincode::serialize(&modification).unwrap(),
             &self.monotonic_serial_number,
         );
     }
