@@ -23,7 +23,7 @@ serde = "1.0"
 serde_derive = "1.0"
 abomonation = "0.7"
 abomonation_derive = "0.3"
-faster-rs = "0.8"
+faster-rs = { git = "https://github.com/faster-rs/faster-rs.git", branch = "remove-serialisation" }
 tempfile = "3"
 timely_bytes = { path = "../bytes", version = "0.9" }
 timely_logging = { path = "../logging", version = "0.9" }

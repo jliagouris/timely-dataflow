@@ -10,8 +10,8 @@ mod managed_map;
 mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use crate::StateBackend;
-use faster_rs::{FasterKey, FasterKv, FasterRmw, FasterValue};
+use crate::{StateBackend, Rmw};
+use faster_rs::FasterKv;
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -19,8 +19,9 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-#[allow(dead_code)]
 pub struct FASTERBackend {
     faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
@@ -38,46 +39,53 @@ fn maybe_refresh_faster(faster: &Arc<FasterKv>, monotonic_serial_number: u64) {
     }
 }
 
-fn faster_upsert<K: FasterKey, V: FasterValue>(
+fn faster_upsert<K: AsRef<[u8]>, V: AsRef<[u8]>>(
     faster: &Arc<FasterKv>,
-    key: &K,
-    value: &V,
+    key: K,
+    value: V,
     monotonic_serial_number: &Rc<RefCell<u64>>,
 ) {
     let old_monotonic_serial_number = *monotonic_serial_number.borrow();
     *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-    faster.upsert(key, value, old_monotonic_serial_number);
+    faster.upsert(key, &value, old_monotonic_serial_number);
     maybe_refresh_faster(faster, old_monotonic_serial_number);
 }
 
-fn faster_read<K: FasterKey, V: FasterValue>(
+fn faster_read<K: AsRef<[u8]>, V: DeserializeOwned>(
     faster: &Arc<FasterKv>,
-    key: &K,
+    key: K,
     monotonic_serial_number: &Rc<RefCell<u64>>,
-) -> (u8, Receiver<V>) {
+) -> Option<V> {
     let old_monotonic_serial_number = *monotonic_serial_number.borrow();
     *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
     let (status, recv) = faster.read(key, old_monotonic_serial_number);
     maybe_refresh_faster(faster, old_monotonic_serial_number);
-    (status, recv)
+    //let val = bincode::deserialize::<V>(&recv.recv().unwrap()).unwrap();
+    recv.recv().ok().map(|vec| bincode::deserialize(&vec).unwrap())
 }
 
-fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
+fn faster_rmw<K: AsRef<[u8]>, V: AsRef<[u8]>, R: DeserializeOwned + Serialize + Rmw>(
     faster: &Arc<FasterKv>,
-    key: &K,
-    modification: &V,
+    key: K,
+    modification: V,
     monotonic_serial_number: &Rc<RefCell<u64>>,
 ) {
     let old_monotonic_serial_number = *monotonic_serial_number.borrow();
     *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
-    faster.rmw(key, modification, old_monotonic_serial_number);
+    faster.rmw(key, &modification, rmw_logic::<R>, old_monotonic_serial_number);
     maybe_refresh_faster(faster, old_monotonic_serial_number);
+}
+
+fn rmw_logic<V: DeserializeOwned + Serialize + Rmw>(val: &[u8], modif: &[u8]) -> Vec<u8> {
+    let val: V = bincode::deserialize(val).unwrap();
+    let modif = bincode::deserialize(modif).unwrap();
+    let modified = val.rmw(modif);
+    bincode::serialize(&modified).unwrap()
 }
 
 impl StateBackend for FASTERBackend {
     fn new() -> Self {
         let faster_directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
-        println!("FASTER Directory: {:?}", faster_directory);
         // TODO: check sizing
         let faster_kv = Arc::new(
             FasterKv::new(
@@ -88,20 +96,6 @@ impl StateBackend for FASTERBackend {
             .unwrap(),
         );
         faster_kv.start_session();
-        /*
-        let faster_kv_clone = Arc::clone(&faster_kv);
-        std::thread::spawn(move || {
-            loop {
-                std::thread::sleep(Duration::from_secs(30));
-                let checkpoint = faster_kv_clone.checkpoint();
-                match checkpoint {
-                    Ok(c) => println!("Checkpoint token: {}", c.token),
-                    Err(_) => println!("Checkpoint failed!"),
-                }
-                println!("Store Size: {}", faster_kv_clone.size());
-            }
-        });
-        */
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),
@@ -116,7 +110,7 @@ impl StateBackend for FASTERBackend {
         ))
     }
 
-    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+    fn get_managed_value<V: 'static + DeserializeOwned + Serialize + Rmw>(
         &self,
         name: &str,
     ) -> Box<ManagedValue<V>> {
@@ -129,13 +123,22 @@ impl StateBackend for FASTERBackend {
 
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue + FasterRmw,
+        K: 'static + Serialize + Hash + Eq,
+        V: 'static + DeserializeOwned + Serialize + Rmw,
     {
         Box::new(FASTERManagedMap::new(
             Arc::clone(&self.faster),
             Rc::clone(&self.monotonic_serial_number),
             name,
         ))
+    }
+}
+
+impl FASTERBackend {
+    pub fn new_from_existing(faster_kv: &Arc<FasterKv>) -> Self {
+        FASTERBackend {
+            faster: Arc::clone(faster_kv),
+            monotonic_serial_number: Rc::new(RefCell::new(1)),
+        }
     }
 }

@@ -1,7 +1,6 @@
 extern crate rocksdb;
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use crate::StateBackend;
-use faster_rs::{FasterKey, FasterRmw, FasterValue};
+use crate::{StateBackend, Rmw};
 use managed_count::RocksDBManagedCount;
 use managed_map::RocksDBManagedMap;
 use managed_value::RocksDBManagedValue;
@@ -10,6 +9,8 @@ use rocksdb::{Options, DB};
 use std::hash::Hash;
 use std::rc::Rc;
 use tempfile::TempDir;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 mod managed_count;
 mod managed_map;
@@ -48,7 +49,7 @@ impl StateBackend for RocksDBBackend {
         Box::new(RocksDBManagedCount::new(Rc::clone(&self.db), &name))
     }
 
-    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+    fn get_managed_value<V: 'static + DeserializeOwned + Serialize + Rmw>(
         &self,
         name: &str,
     ) -> Box<ManagedValue<V>> {
@@ -57,8 +58,8 @@ impl StateBackend for RocksDBBackend {
 
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue + FasterRmw,
+        K: 'static + Serialize + Hash + Eq,
+        V: 'static + DeserializeOwned + Serialize + Rmw,
     {
         Box::new(RocksDBManagedMap::new(Rc::clone(&self.db), &name))
     }

@@ -7,13 +7,14 @@ mod managed_map;
 mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
-use crate::StateBackend;
-use faster_rs::{FasterKey, FasterRmw, FasterValue};
+use crate::{StateBackend, Rmw};
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 pub struct InMemoryBackend {
     backend: Rc<RefCell<HashMap<String, Rc<Any>>>>,
@@ -30,7 +31,7 @@ impl StateBackend for InMemoryBackend {
         Box::new(InMemoryManagedCount::new(name, Rc::clone(&self.backend)))
     }
 
-    fn get_managed_value<V: 'static + FasterValue + FasterRmw>(
+    fn get_managed_value<V: 'static + DeserializeOwned + Serialize + Rmw>(
         &self,
         name: &str,
     ) -> Box<ManagedValue<V>> {
@@ -39,8 +40,8 @@ impl StateBackend for InMemoryBackend {
 
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue + FasterRmw,
+        K: 'static + Serialize + Hash + Eq,
+        V: 'static + DeserializeOwned + Serialize + Rmw,
     {
         Box::new(InMemoryManagedMap::new(name, Rc::clone(&self.backend)))
     }
