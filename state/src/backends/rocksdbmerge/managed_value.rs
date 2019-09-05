@@ -1,7 +1,9 @@
 use crate::primitives::ManagedValue;
-use faster_rs::{FasterRmw, FasterValue};
+use crate::Rmw;
 use rocksdb::{WriteBatch, DB};
 use std::rc::Rc;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 pub struct RocksDBManagedValue {
     db: Rc<DB>,
@@ -17,7 +19,7 @@ impl RocksDBManagedValue {
     }
 }
 
-impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedValue {
+impl<V: 'static + DeserializeOwned + Serialize + Rmw> ManagedValue<V> for RocksDBManagedValue {
     fn set(&mut self, value: V) {
         let mut batch = WriteBatch::default();
         batch.put(&self.name, bincode::serialize(&value).unwrap());
