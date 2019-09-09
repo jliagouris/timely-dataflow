@@ -40,7 +40,7 @@ impl StateBackend for RocksDBBackend {
         let mut options = Options::default();
         options.create_if_missing(true);
         options.set_merge_operator("merge_numbers", merge_numbers, Some(merge_numbers));
-        let db = DB::open(&options, directory.path()).expect("Unable to instantiate RocksDB");
+        let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDB");
         RocksDBBackend { db: Rc::new(db) }
     }
 
