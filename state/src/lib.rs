@@ -42,6 +42,13 @@ impl<S: StateBackend> StateHandle<S> {
         }
     }
 
+    pub fn spawn_new_backend(&self) -> Self {
+        StateHandle {
+            backend: Rc::new(S::new()),
+            name: self.name.clone()
+        }
+    }
+
     pub fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {
         let mut physical_name = self.name.clone();
         physical_name.push_str(name);
