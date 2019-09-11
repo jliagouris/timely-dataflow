@@ -3,6 +3,7 @@ use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use rocksdb::{WriteBatch, DB};
 use std::hash::Hash;
 use std::rc::Rc;
+use std::time::Instant;
 
 pub struct RocksDBManagedMap {
     db: Rc<DB>,
@@ -11,14 +12,25 @@ pub struct RocksDBManagedMap {
 
 impl RocksDBManagedMap {
     pub fn new(db: Rc<DB>, name: &AsRef<str>) -> Self {
+        let start = Instant::now();
+        let serialised_name = bincode::serialize(name.as_ref()).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
         RocksDBManagedMap {
             db,
-            name: bincode::serialize(name.as_ref()).unwrap(),
+            name: serialised_name,
         }
     }
 
     fn prefix_key<K: 'static + FasterKey + Hash + Eq>(&self, key: &K) -> Vec<u8> {
+        let start = Instant::now();
         let mut serialised_key = bincode::serialize(key).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
         let mut prefixed_key = self.name.clone();
         prefixed_key.append(&mut serialised_key);
         prefixed_key
@@ -33,7 +45,13 @@ where
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
-        batch.put(prefixed_key, bincode::serialize(&value).unwrap());
+        let start = Instant::now();
+        let vec = bincode::serialize(&value).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
+        batch.put(prefixed_key, vec);
         self.db.write_without_wal(batch);
     }
 
@@ -41,12 +59,15 @@ where
         let prefixed_key = self.prefix_key(key);
         let db_vector = self.db.get(prefixed_key).unwrap();
         db_vector.map(|db_vector| {
-            Rc::new(
-                bincode::deserialize(unsafe {
-                    std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
-                })
-                .unwrap(),
-            )
+            let start = Instant::now();
+            let deserialised = bincode::deserialize(unsafe {
+                std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
+            });
+            let end = Instant::now();
+            let time_taken = end.duration_since(start).subsec_nanos() as u64;
+            timing!("deserialisation", time_taken);
+            timing!("total_serialisation", time_taken);
+            Rc::new(deserialised.unwrap())
         })
     }
 
@@ -54,10 +75,16 @@ where
         let prefixed_key = self.prefix_key(key);
         let db_vector = self.db.get(prefixed_key).unwrap();
         let result = db_vector.map(|db_vector| {
-            bincode::deserialize(unsafe {
+            let start = Instant::now();
+            let v = bincode::deserialize(unsafe {
                 std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
             })
-            .unwrap()
+            .unwrap();
+            let end = Instant::now();
+            let time_taken = end.duration_since(start).subsec_nanos() as u64;
+            timing!("deserialisation", time_taken);
+            timing!("total_serialisation", time_taken);
+            v
         });
         self.db.delete(&self.name);
         result
@@ -67,10 +94,16 @@ where
         let prefixed_key = self.prefix_key(&key);
         let db_vector = self.db.get(prefixed_key).unwrap();
         let result = db_vector.map(|db_vector| {
-            bincode::deserialize::<V>(unsafe {
+            let start = Instant::now();
+            let val = bincode::deserialize::<V>(unsafe {
                 std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
             })
-            .unwrap()
+            .unwrap();
+            let end = Instant::now();
+            let time_taken = end.duration_since(start).subsec_nanos() as u64;
+            timing!("deserialisation", time_taken);
+            timing!("total_serialisation", time_taken);
+            val
         });
         let modified = match result {
             Some(val) => val.rmw(modification),

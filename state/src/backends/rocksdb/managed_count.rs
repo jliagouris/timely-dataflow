@@ -1,6 +1,7 @@
 use crate::primitives::ManagedCount;
 use rocksdb::{WriteBatch, DB};
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 pub struct RocksDBManagedCount {
     db: Rc<DB>,
@@ -9,38 +10,68 @@ pub struct RocksDBManagedCount {
 
 impl RocksDBManagedCount {
     pub fn new(db: Rc<DB>, name: &AsRef<str>) -> Self {
+        let start = Instant::now();
+        let serialised_name = bincode::serialize(name.as_ref()).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
         RocksDBManagedCount {
             db,
-            name: bincode::serialize(name.as_ref()).unwrap(),
+            name: serialised_name,
         }
     }
 }
 
 impl ManagedCount for RocksDBManagedCount {
     fn decrease(&mut self, amount: i64) {
-        self.db
-            .merge(&self.name, bincode::serialize(&(-amount)).unwrap());
+        let start = Instant::now();
+        let serialised_amount = bincode::serialize(&(-amount)).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
+        self.db.merge(&self.name, serialised_amount);
     }
 
     fn increase(&mut self, amount: i64) {
-        self.db
-            .merge(&self.name, bincode::serialize(&amount).unwrap());
+        let start = Instant::now();
+        let serialised_amount = bincode::serialize(&(amount)).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
+        self.db.merge(&self.name, serialised_amount);
     }
 
     fn get(&self) -> i64 {
         let db_vector = self.db.get(&self.name).unwrap();
         match db_vector {
             None => 0,
-            Some(db_vector) => bincode::deserialize(unsafe {
-                std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
-            })
-            .unwrap(),
+            Some(db_vector) => {
+                let start = Instant::now();
+                let value = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
+                })
+                .unwrap();
+                let end = Instant::now();
+                let time_taken = end.duration_since(start).subsec_nanos() as u64;
+                timing!("deserialisation", time_taken);
+                timing!("total_serialisation", time_taken);
+                value
+            }
         }
     }
 
     fn set(&mut self, value: i64) {
         let mut batch = WriteBatch::default();
-        batch.put(&self.name, bincode::serialize(&value).unwrap());
+        let start = Instant::now();
+        let serialised_value = bincode::serialize(&value).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
+        batch.put(&self.name, serialised_value);
         self.db.write_without_wal(batch);
     }
 }
