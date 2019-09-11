@@ -7,5 +7,8 @@ edition = "2018"
 [dependencies]
 bincode = "1.1.2"
 faster-rs = "0.8"
-rocksdb = "0.12.3"
 tempfile = "3"
+
+[dependencies.rocksdb]
+git = "https://github.com/matthewbrookes/rust-rocksdb"
+branch = "master"
