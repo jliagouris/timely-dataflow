@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate metrics;
 extern crate faster_rs;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};

@@ -2,6 +2,7 @@ use crate::primitives::ManagedValue;
 use faster_rs::{FasterRmw, FasterValue};
 use rocksdb::{WriteBatch, DB};
 use std::rc::Rc;
+use std::time::Instant;
 
 pub struct RocksDBManagedValue {
     db: Rc<DB>,
@@ -20,29 +21,45 @@ impl RocksDBManagedValue {
 impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedValue {
     fn set(&mut self, value: V) {
         let mut batch = WriteBatch::default();
-        batch.put(&self.name, bincode::serialize(&value).unwrap());
+        let start = Instant::now();
+        let vec = bincode::serialize(&value).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        timing!("serialisation", time_taken);
+        timing!("total_serialisation", time_taken);
+        batch.put(&self.name, vec);
         self.db.write_without_wal(batch);
     }
 
     fn get(&self) -> Option<Rc<V>> {
         let db_vector = self.db.get(&self.name).unwrap();
         db_vector.map(|db_vector| {
-            Rc::new(
-                bincode::deserialize(unsafe {
-                    std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
-                })
-                .unwrap(),
-            )
+            let start = Instant::now();
+            let v = bincode::deserialize(unsafe {
+                std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
+            })
+            .unwrap();
+            let end = Instant::now();
+            let time_taken = end.duration_since(start).subsec_nanos() as u64;
+            timing!("deserialisation", time_taken);
+            timing!("total_serialisation", time_taken);
+            Rc::new(v)
         })
     }
 
     fn take(&mut self) -> Option<V> {
         let db_vector = self.db.get(&self.name).unwrap();
         let result = db_vector.map(|db_vector| {
-            bincode::deserialize(unsafe {
+            let start = Instant::now();
+            let v = bincode::deserialize(unsafe {
                 std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
             })
-            .unwrap()
+            .unwrap();
+            let end = Instant::now();
+            let time_taken = end.duration_since(start).subsec_nanos() as u64;
+            timing!("deserialisation", time_taken);
+            timing!("total_serialisation", time_taken);
+            v
         });
         self.db.delete(&self.name);
         result
@@ -51,10 +68,16 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedVal
     fn rmw(&mut self, modification: V) {
         let db_vector = self.db.get(&self.name).unwrap();
         let result = db_vector.map(|db_vector| {
-            bincode::deserialize::<V>(unsafe {
+            let start = Instant::now();
+            let x = bincode::deserialize::<V>(unsafe {
                 std::slice::from_raw_parts(db_vector.as_ptr(), db_vector.len())
             })
-            .unwrap()
+            .unwrap();
+            let end = Instant::now();
+            let time_taken = end.duration_since(start).subsec_nanos() as u64;
+            timing!("deserialisation", time_taken);
+            timing!("total_serialisation", time_taken);
+            x
         });
         let modified = match result {
             Some(val) => val.rmw(modification),
