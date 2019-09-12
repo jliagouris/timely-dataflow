@@ -48,6 +48,8 @@ impl StateBackend for RocksDBBackend {
         options.set_min_write_buffer_number(2);
         options.set_max_write_buffer_number(4);
         options.set_write_buffer_size(3 * 1024 * 1024 * 1024); // 3 GB
+        options.enable_statistics();
+        options.set_stats_dump_period_sec(5);
         options.set_block_based_table_factory(&block_based_options);
         let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDB");
         RocksDBBackend { db: Rc::new(db) }
