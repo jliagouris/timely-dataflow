@@ -14,8 +14,8 @@ impl RocksDBManagedCount {
         let serialised_name = bincode::serialize(name.as_ref()).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         RocksDBManagedCount {
             db,
             name: serialised_name,
@@ -29,8 +29,8 @@ impl ManagedCount for RocksDBManagedCount {
         let serialised_amount = bincode::serialize(&(-amount)).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         self.db.merge(&self.name, serialised_amount);
     }
 
@@ -39,8 +39,8 @@ impl ManagedCount for RocksDBManagedCount {
         let serialised_amount = bincode::serialize(&(amount)).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         self.db.merge(&self.name, serialised_amount);
     }
 
@@ -56,8 +56,8 @@ impl ManagedCount for RocksDBManagedCount {
                 .unwrap();
                 let end = Instant::now();
                 let time_taken = end.duration_since(start).subsec_nanos() as u64;
-                timing!("deserialisation", time_taken);
-                timing!("total_serialisation", time_taken);
+                counter!("deserialisation", time_taken);
+                counter!("total_serialisation", time_taken);
                 value
             }
         }
@@ -69,8 +69,8 @@ impl ManagedCount for RocksDBManagedCount {
         let serialised_value = bincode::serialize(&value).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         batch.put(&self.name, serialised_value);
         self.db.write_without_wal(batch);
     }
