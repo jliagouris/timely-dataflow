@@ -16,8 +16,8 @@ impl RocksDBManagedMap {
         let serialised_name = bincode::serialize(name.as_ref()).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         RocksDBManagedMap {
             db,
             name: serialised_name,
@@ -29,8 +29,8 @@ impl RocksDBManagedMap {
         let mut serialised_key = bincode::serialize(key).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         let mut prefixed_key = self.name.clone();
         prefixed_key.append(&mut serialised_key);
         prefixed_key
@@ -49,8 +49,8 @@ where
         let vec = bincode::serialize(&value).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         batch.put(prefixed_key, vec);
         self.db.write_without_wal(batch);
     }
@@ -65,8 +65,8 @@ where
             });
             let end = Instant::now();
             let time_taken = end.duration_since(start).subsec_nanos() as u64;
-            timing!("deserialisation", time_taken);
-            timing!("total_serialisation", time_taken);
+            counter!("deserialisation", time_taken);
+            counter!("total_serialisation", time_taken);
             Rc::new(deserialised.unwrap())
         })
     }
@@ -82,8 +82,8 @@ where
             .unwrap();
             let end = Instant::now();
             let time_taken = end.duration_since(start).subsec_nanos() as u64;
-            timing!("deserialisation", time_taken);
-            timing!("total_serialisation", time_taken);
+            counter!("deserialisation", time_taken);
+            counter!("total_serialisation", time_taken);
             v
         });
         self.db.delete(&self.name);
@@ -101,8 +101,8 @@ where
             .unwrap();
             let end = Instant::now();
             let time_taken = end.duration_since(start).subsec_nanos() as u64;
-            timing!("deserialisation", time_taken);
-            timing!("total_serialisation", time_taken);
+            counter!("deserialisation", time_taken);
+            counter!("total_serialisation", time_taken);
             val
         });
         let modified = match result {

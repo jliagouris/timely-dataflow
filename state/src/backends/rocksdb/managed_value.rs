@@ -25,8 +25,8 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedVal
         let vec = bincode::serialize(&value).unwrap();
         let end = Instant::now();
         let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        timing!("serialisation", time_taken);
-        timing!("total_serialisation", time_taken);
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         batch.put(&self.name, vec);
         self.db.write_without_wal(batch);
     }
@@ -41,8 +41,8 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedVal
             .unwrap();
             let end = Instant::now();
             let time_taken = end.duration_since(start).subsec_nanos() as u64;
-            timing!("deserialisation", time_taken);
-            timing!("total_serialisation", time_taken);
+            counter!("deserialisation", time_taken);
+            counter!("total_serialisation", time_taken);
             Rc::new(v)
         })
     }
@@ -57,8 +57,8 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedVal
             .unwrap();
             let end = Instant::now();
             let time_taken = end.duration_since(start).subsec_nanos() as u64;
-            timing!("deserialisation", time_taken);
-            timing!("total_serialisation", time_taken);
+            counter!("deserialisation", time_taken);
+            counter!("total_serialisation", time_taken);
             v
         });
         self.db.delete(&self.name);
@@ -75,8 +75,8 @@ impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for RocksDBManagedVal
             .unwrap();
             let end = Instant::now();
             let time_taken = end.duration_since(start).subsec_nanos() as u64;
-            timing!("deserialisation", time_taken);
-            timing!("total_serialisation", time_taken);
+            counter!("deserialisation", time_taken);
+            counter!("total_serialisation", time_taken);
             x
         });
         let modified = match result {
