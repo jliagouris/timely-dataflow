@@ -1,4 +1,5 @@
 extern crate rocksdb;
+use self::rocksdb::BlockBasedOptions;
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::StateBackend;
 use faster_rs::{FasterKey, FasterRmw, FasterValue};
@@ -37,9 +38,18 @@ fn merge_numbers(
 impl StateBackend for RocksDBBackend {
     fn new() -> Self {
         let directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
+        let mut block_based_options = BlockBasedOptions::default();
+        block_based_options.set_block_size(128 * 1024 * 1024); // 128 KB
+        block_based_options.set_lru_cache(256 * 1024 * 1024 * 1024); // 256 MB
         let mut options = Options::default();
         options.create_if_missing(true);
         options.set_merge_operator("merge_numbers", merge_numbers, Some(merge_numbers));
+        options.set_use_fsync(false);
+        options.set_min_write_buffer_number(3);
+        options.set_max_write_buffer_number(4);
+        options.set_write_buffer_size(3 * 1024 * 1024 * 1024); // 3 GB
+        options.increase_parallelism(4);
+        options.set_block_based_table_factory(&block_based_options);
         let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDB");
         RocksDBBackend { db: Rc::new(db) }
     }
