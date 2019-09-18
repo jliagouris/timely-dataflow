@@ -10,7 +10,7 @@ mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::StateBackend;
-use faster_rs::{FasterKey, FasterKv, FasterRmw, FasterValue};
+use faster_rs::{FasterKey, FasterKv, FasterKvBuilder, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -70,12 +70,9 @@ fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
 impl StateBackend for FASTERInMemoryBackend {
     fn new() -> Self {
         // TODO: check sizing
-        let faster_kv = Arc::new(
-            FasterKv::new_in_memory(
-                1 << 15,
-                3 * 1024 * 1024 * 1024, // 3GB
-            )
-        );
+        let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
+        builder.set_pre_allocate_log(true);
+        let faster_kv = Arc::new(builder.build().unwrap());
         faster_kv.start_session();
         FASTERInMemoryBackend {
             faster: faster_kv,
@@ -114,4 +111,3 @@ impl StateBackend for FASTERInMemoryBackend {
         ))
     }
 }
-

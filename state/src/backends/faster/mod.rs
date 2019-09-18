@@ -11,7 +11,7 @@ mod managed_value;
 
 use crate::primitives::{ManagedCount, ManagedMap, ManagedValue};
 use crate::StateBackend;
-use faster_rs::{FasterKey, FasterKv, FasterRmw, FasterValue};
+use faster_rs::{FasterKey, FasterKv, FasterKvBuilder, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -76,32 +76,17 @@ fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
 
 impl StateBackend for FASTERBackend {
     fn new() -> Self {
-        let faster_directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
-        println!("FASTER Directory: {:?}", faster_directory);
+        let faster_directory = TempDir::new_in(".")
+            .expect("Unable to create directory for FASTER")
+            .into_path();
+        let faster_directory_string = faster_directory.to_str().unwrap();
         // TODO: check sizing
-        let faster_kv = Arc::new(
-            FasterKv::new(
-                1 << 15,
-                3 * 1024 * 1024 * 1024,
-                faster_directory.into_path().to_str().unwrap().to_owned(),
-            )
-            .unwrap(),
-        );
+        let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
+        builder
+            .with_disk(faster_directory_string)
+            .set_pre_allocate_log(true);
+        let faster_kv = Arc::new(builder.build().unwrap());
         faster_kv.start_session();
-        /*
-        let faster_kv_clone = Arc::clone(&faster_kv);
-        std::thread::spawn(move || {
-            loop {
-                std::thread::sleep(Duration::from_secs(30));
-                let checkpoint = faster_kv_clone.checkpoint();
-                match checkpoint {
-                    Ok(c) => println!("Checkpoint token: {}", c.token),
-                    Err(_) => println!("Checkpoint failed!"),
-                }
-                println!("Store Size: {}", faster_kv_clone.size());
-            }
-        });
-        */
         FASTERBackend {
             faster: faster_kv,
             monotonic_serial_number: Rc::new(RefCell::new(1)),

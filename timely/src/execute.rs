@@ -6,7 +6,7 @@ use crate::state::backends::{InMemoryBackend, FASTERBackend};
 use crate::state::StateHandle;
 
 use std::rc::Rc;
-use faster_rs::FasterKv;
+use faster_rs::{FasterKv, FasterKvBuilder};
 use tempfile::TempDir;
 use std::sync::Arc;
 use timely_state::backends::FASTERNodeBackend;
@@ -186,27 +186,12 @@ where
     let (allocators, other) = config.try_build()?;
 
     let faster_directory = Arc::new(TempDir::new_in(".").expect("Unable to create directory for FASTER"));
-    // TODO: check sizing
-    let faster_kv = Arc::new(FasterKv::new(
-        1 << 15,
-        12 * 1024 * 1024 * 1024, // 12GB
-        faster_directory.path().to_str().unwrap().to_owned(),
-    ).unwrap());
+    let faster_directory_string = faster_directory.path().to_str().unwrap();
 
-    /*
-    let faster_kv_clone = Arc::clone(&faster_kv);
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(Duration::from_secs(60));
-            let checkpoint = faster_kv_clone.checkpoint();
-            match checkpoint {
-                Ok(c) => println!("Checkpoint token: {}", c.token),
-                Err(_) => println!("Checkpoint failed!"),
-            }
-            println!("Store Size: {}", faster_kv_clone.size());
-        }
-    });
-    */
+    let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
+    builder.with_disk(faster_directory_string)
+            .set_pre_allocate_log(true);
+    let faster_kv = Arc::new(builder.build().unwrap());
 
     initialize_from(allocators, other, move |allocator| {
 
@@ -323,12 +308,12 @@ where
     T: Send+'static,
     F: Fn(&mut Worker<<A as AllocateBuilder>::Allocator>, StateHandle<FASTERNodeBackend>)->T+Send+Sync+'static {
     let faster_directory = Arc::new(TempDir::new_in(".").expect("Unable to create directory for FASTER"));
-    // TODO: check sizing
-    let faster_kv = Arc::new(FasterKv::new(
-        1 << 15,
-        2 * 1024 * 1024 * 1024, // 2GB
-        faster_directory.path().to_str().unwrap().to_owned(),
-    ).unwrap());
+    let faster_directory_string = faster_directory.path().to_str().unwrap();
+
+    let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
+    builder.with_disk(faster_directory_string)
+        .set_pre_allocate_log(true);
+    let faster_kv = Arc::new(builder.build().unwrap());
 
     initialize_from(builders, others, move |allocator| {
         let mut worker = Worker::new(allocator);
