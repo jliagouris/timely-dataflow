@@ -7,6 +7,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::time::Instant;
 
 pub struct FASTERManagedValue {
     faster: Arc<FasterKv>,
@@ -30,10 +31,16 @@ impl FASTERManagedValue {
 
 impl<V: 'static + DeserializeOwned + Serialize + Rmw> ManagedValue<V> for FASTERManagedValue {
     fn set(&mut self, value: V) {
+        let start = Instant::now();
+        let serialised_value = bincode::serialize(&value).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_upsert(
             &self.faster,
             &self.name,
-            &bincode::serialize(&value).unwrap(),
+            &serialised_value,
             &self.monotonic_serial_number,
         );
     }
@@ -47,10 +54,16 @@ impl<V: 'static + DeserializeOwned + Serialize + Rmw> ManagedValue<V> for FASTER
     }
 
     fn rmw(&mut self, modification: V) {
+        let start = Instant::now();
+        let serialised_modification = bincode::serialize(&modification).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_rmw::<_,_,V>(
             &self.faster,
             &self.name,
-            &bincode::serialize(&modification).unwrap(),
+            serialised_modification,
             &self.monotonic_serial_number,
         );
     }

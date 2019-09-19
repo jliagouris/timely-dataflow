@@ -10,6 +10,7 @@ use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use serde::de::DeserializeOwned;
+use std::time::Instant;
 use serde::Serialize;
 
 pub struct FASTERManagedMap
@@ -26,15 +27,24 @@ impl FASTERManagedMap
         monotonic_serial_number: Rc<RefCell<u64>>,
         name: &str,
     ) -> Self {
+        let start = Instant::now();
+        let serialised_name = bincode::serialize(name).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         FASTERManagedMap {
             faster,
             monotonic_serial_number,
-            serialised_name: serialize(name).unwrap(),
+            serialised_name,
         }
     }
 
     fn prefix_key<K: Serialize>(&self, key: &K) -> Vec<u8> {
-        let mut serialised_key = serialize(key).unwrap();
+        let start = Instant::now();
+        let mut serialised_key = bincode::serialize(key).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
         let mut prefixed_key = self.serialised_name.clone();
         prefixed_key.append(&mut serialised_key);
         prefixed_key
@@ -48,10 +58,16 @@ where
 {
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
+        let start = Instant::now();
+        let serialised_value = bincode::serialize(&value).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_upsert(
             &self.faster,
             &prefixed_key,
-            &bincode::serialize(&value).unwrap(),
+            &serialised_value,
             &self.monotonic_serial_number,
         );
     }
@@ -69,10 +85,16 @@ where
 
     fn rmw(&mut self, key: K, modification: V) {
         let prefixed_key = self.prefix_key(&key);
+        let start = Instant::now();
+        let serialised_modification = bincode::serialize(&modification).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_rmw::<_,_,V>(
             &self.faster,
             &prefixed_key,
-            &bincode::serialize(&modification).unwrap(),
+            serialised_modification,
             &self.monotonic_serial_number,
         );
     }
