@@ -17,7 +17,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -60,7 +60,15 @@ fn faster_read<K: AsRef<[u8]>, V: DeserializeOwned>(
     *monotonic_serial_number.borrow_mut() = old_monotonic_serial_number + 1;
     let (status, recv) = faster.read(key, old_monotonic_serial_number);
     maybe_refresh_faster(faster, old_monotonic_serial_number);
-    recv.recv().ok().map(|vec| bincode::deserialize(&vec).unwrap())
+    recv.recv().ok().map(|vec| {
+        let start = Instant::now();
+        let deserialised = bincode::deserialize(&vec).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("deserialisation", time_taken);
+        counter!("total_serialisation", time_taken);
+        deserialised
+    })
 }
 
 fn faster_rmw<K: AsRef<[u8]>, V: AsRef<[u8]>, R: DeserializeOwned + Serialize + Rmw>(
@@ -76,10 +84,21 @@ fn faster_rmw<K: AsRef<[u8]>, V: AsRef<[u8]>, R: DeserializeOwned + Serialize + 
 }
 
 fn rmw_logic<V: DeserializeOwned + Serialize + Rmw>(val: &[u8], modif: &[u8]) -> Vec<u8> {
+    let start = Instant::now();
     let val: V = bincode::deserialize(val).unwrap();
     let modif = bincode::deserialize(modif).unwrap();
+    let end = Instant::now();
+    let time_taken = end.duration_since(start).subsec_nanos() as u64;
+    counter!("deserialisation", time_taken);
+    counter!("total_serialisation", time_taken);
     let modified = val.rmw(modif);
-    bincode::serialize(&modified).unwrap()
+    let start = Instant::now();
+    let val = bincode::serialize(&modified).unwrap();
+    let end = Instant::now();
+    let time_taken = end.duration_since(start).subsec_nanos() as u64;
+    counter!("serialisation", time_taken);
+    counter!("total_serialisation", time_taken);
+    val
 }
 
 impl StateBackend for FASTERBackend {

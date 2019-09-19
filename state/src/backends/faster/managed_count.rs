@@ -4,6 +4,7 @@ use faster_rs::{status, FasterKv};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct FASTERManagedCount {
     faster: Arc<FasterKv>,
@@ -27,19 +28,31 @@ impl FASTERManagedCount {
 
 impl ManagedCount for FASTERManagedCount {
     fn decrease(&mut self, amount: i64) {
+        let start = Instant::now();
+        let serialised_amount = bincode::serialize(&(-amount)).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_rmw::<_,_,i64>(
             &self.faster,
             &self.name,
-            &bincode::serialize(&(-amount as i64)).unwrap(),
+            &serialised_amount,
             &self.monotonic_serial_number,
         );
     }
 
     fn increase(&mut self, amount: i64) {
+        let start = Instant::now();
+        let serialised_amount = bincode::serialize(&(amount)).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_rmw::<_,_,i64>(
             &self.faster,
             &self.name,
-            &bincode::serialize(&amount).unwrap(),
+            &serialised_amount,
             &self.monotonic_serial_number,
         );
     }
@@ -49,10 +62,16 @@ impl ManagedCount for FASTERManagedCount {
     }
 
     fn set(&mut self, value: i64) {
+        let start = Instant::now();
+        let serialised_value = bincode::serialize(&value).unwrap();
+        let end = Instant::now();
+        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+        counter!("serialisation", time_taken);
+        counter!("total_serialisation", time_taken);
         faster_upsert(
             &self.faster,
             &self.name,
-            &bincode::serialize(&value).unwrap(),
+            &serialised_value,
             &self.monotonic_serial_number,
         );
     }
