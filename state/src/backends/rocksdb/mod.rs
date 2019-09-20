@@ -45,10 +45,9 @@ impl StateBackend for RocksDBBackend {
         options.create_if_missing(true);
         options.set_merge_operator("merge_numbers", merge_numbers, Some(merge_numbers));
         options.set_use_fsync(false);
-        options.set_min_write_buffer_number(3);
+        options.set_min_write_buffer_number(2);
         options.set_max_write_buffer_number(4);
         options.set_write_buffer_size(3 * 1024 * 1024 * 1024); // 3 GB
-        options.increase_parallelism(4);
         options.set_block_based_table_factory(&block_based_options);
         let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDB");
         RocksDBBackend { db: Rc::new(db) }
