@@ -190,7 +190,7 @@ where
 
     let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
     builder.with_disk(faster_directory_string)
-            .set_pre_allocate_log(true);
+            .set_pre_allocate_log(false);
     let faster_kv = Arc::new(builder.build().unwrap());
 
     initialize_from(allocators, other, move |allocator| {
@@ -312,7 +312,7 @@ where
 
     let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
     builder.with_disk(faster_directory_string)
-        .set_pre_allocate_log(true);
+        .set_pre_allocate_log(false);
     let faster_kv = Arc::new(builder.build().unwrap());
 
     initialize_from(builders, others, move |allocator| {
