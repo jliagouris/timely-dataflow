@@ -95,11 +95,11 @@ where
                 .unwrap(),
             );
             let value = Rc::new(
-                    bincode::deserialize(unsafe {
-                        std::slice::from_raw_parts(raw_value.as_ptr(), raw_value.len())
-                    })
-                    .unwrap(),
-                );
+                bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(raw_value.as_ptr(), raw_value.len())
+                })
+                .unwrap(),
+            );
             return Some((key, value));
         }
         None
@@ -165,5 +165,38 @@ mod tests {
         managed_map.insert(key, value);
         assert_eq!(managed_map.remove(&key), Some(value));
         assert_eq!(managed_map.remove(&key), Some(value));
+    }
+
+    #[test]
+    fn iterate() {
+        let directory = TempDir::new().unwrap();
+        let mut options = Options::default();
+        options.create_if_missing(true);
+        let db = DB::open(&options, directory.path()).expect("Unable to instantiate RocksDB");
+        let mut managed_map = RocksDBManagedMap::new(Rc::new(db), &"");
+
+        let key: u64 = 1;
+        let value: u64 = 1337;
+        let key_2: u64 = 2;
+        let value_2: u64 = 1338;
+        let key_3: u64 = 3;
+        let value_3: u64 = 1333;
+        let ser_key = bincode::serialize(&key).expect("Cannot serialize key.");
+        let serialized_key = ser_key.as_slice();
+        let ser_key_2 = bincode::serialize(&key_2).expect("Cannot serialize key 2.");
+        let serialized_key_2 = ser_key_2.as_slice();
+        let ser_key_3 = bincode::serialize(&key_3).expect("Cannot serialize key 3.");
+        let serialized_key_3 = ser_key_3.as_slice();
+
+        managed_map.insert(key, value);
+        managed_map.insert(key_2, value_2);
+        managed_map.insert(key_3, value_3);
+        let mut iter = managed_map.iter(key);
+        let Some((k, _v)) = iter.next();
+        assert_eq!(k.as_ref(), serialized_key);
+        let Some((k_1, _v_1)) = iter.next();
+        assert_eq!(k_1.as_ref(), serialized_key_1);
+        let Some((k_2, _v_2)) = iter.next();
+        assert_eq!(k_2.as_ref(), serialized_key_2);
     }
 }
