@@ -8,6 +8,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
+use rocksdb::DBIterator;
 
 pub struct FASTERManagedMap<K, V>
 where
@@ -18,7 +19,7 @@ where
     monotonic_serial_number: Rc<RefCell<u64>>,
     serialised_name: Vec<u8>,
     key: PhantomData<K>,
-    value: PhantomData<V>,
+    value: PhantomData<V>
 }
 
 impl<K, V> FASTERManagedMap<K, V>
@@ -104,6 +105,14 @@ where
         let (status, _): (u8, Receiver<V>) =
             faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
         return status == status::OK;
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("FASTER's managed map does not support iteration.");
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        panic!("FASTER's managed map does not support iteration.");
     }
 }
 

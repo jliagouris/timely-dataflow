@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use rocksdb::DBIterator;
 
 pub struct InMemoryManagedMap<K, V>
 where
@@ -137,6 +138,14 @@ where
             .borrow_mut()
             .insert(self.name.clone(), Rc::new(inner_map));
         result
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("In-memory managed map does not support iteration.");
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        panic!("In-memory managed map does not support iteration.");
     }
 }
 

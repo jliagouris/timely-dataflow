@@ -1,12 +1,12 @@
 use crate::primitives::ManagedMap;
 use faster_rs::{FasterKey, FasterRmw, FasterValue};
-use rocksdb::{WriteBatch, DB};
+use rocksdb::{WriteBatch, DB, DBIterator, Direction, IteratorMode};
 use std::hash::Hash;
 use std::rc::Rc;
 
 pub struct RocksDBManagedMap {
     db: Rc<DB>,
-    name: Vec<u8>,
+    name: Vec<u8>
 }
 
 impl RocksDBManagedMap {
@@ -77,6 +77,32 @@ where
             None => modification,
         };
         self.insert(key, modified);
+    }
+
+    // Returns a forward DBIterator starting from 'key'
+    fn iter(&mut self, key: K) -> DBIterator {
+        let prefixed_key = self.prefix_key(&key);
+        self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
+    }
+
+    // Returns the next value of the given DBIterator
+    fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        if let Some((raw_key, raw_value)) = iter.next() {
+            let key = Rc::new(
+                bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(raw_key.as_ptr(), raw_key.len())
+                })
+                .unwrap(),
+            );
+            let value = Rc::new(
+                    bincode::deserialize(unsafe {
+                        std::slice::from_raw_parts(raw_value.as_ptr(), raw_value.len())
+                    })
+                    .unwrap(),
+                );
+            return Some((key, value));
+        }
+        None
     }
 
     fn contains(&self, key: &K) -> bool {

@@ -1,8 +1,10 @@
 use crate::primitives::ManagedMap;
 use faster_rs::{FasterKey, FasterRmw, FasterValue};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::hash::Hash;
 use std::rc::Rc;
+use rocksdb::DBIterator;
 
 pub struct InMemoryNativeManagedMap<K, V>
 where
@@ -57,5 +59,13 @@ where
 
     fn contains(&self, key: &K) -> bool {
         self.map.contains_key(key)
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("In-memory managed map does not support iteration.");
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        panic!("In-memory managed map does not support iteration.");
     }
 }
