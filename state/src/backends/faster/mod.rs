@@ -81,7 +81,7 @@ impl StateBackend for FASTERBackend {
             .into_path();
         let faster_directory_string = faster_directory.to_str().unwrap();
         // TODO: check sizing
-        let mut builder = FasterKvBuilder::new(1 << 24, 12 * 1024 * 1024 * 1024);
+        let mut builder = FasterKvBuilder::new(1 << 24, 1 * 1024 * 1024 * 1024);
         builder
             .with_disk(faster_directory_string)
             .set_pre_allocate_log(true);
