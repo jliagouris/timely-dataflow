@@ -125,9 +125,7 @@ mod tests {
 
     #[test]
     fn map_insert_get() {
-        let tmp_dir = TempDir::new().unwrap();
-        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::default());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
@@ -140,9 +138,7 @@ mod tests {
 
     #[test]
     fn map_contains() {
-        let tmp_dir = TempDir::new().unwrap();
-        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::default());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
@@ -155,9 +151,7 @@ mod tests {
 
     #[test]
     fn map_rmw() {
-        let tmp_dir = TempDir::new().unwrap();
-        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::default());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
@@ -172,9 +166,7 @@ mod tests {
 
     #[test]
     fn map_remove_does_not_remove() {
-        let tmp_dir = TempDir::new().unwrap();
-        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::default());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let key: u64 = 1;
