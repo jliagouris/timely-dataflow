@@ -87,9 +87,7 @@ mod tests {
 
     #[test]
     fn value_set_get() {
-        let tmp_dir = TempDir::new().unwrap();
-        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::default());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let value: u64 = 1337;
@@ -101,9 +99,7 @@ mod tests {
 
     #[test]
     fn value_rmw() {
-        let tmp_dir = TempDir::new().unwrap();
-        let dir_path = tmp_dir.path().to_string_lossy().into_owned();
-        let store = Arc::new(FasterKv::new(TABLE_SIZE, LOG_SIZE, dir_path).unwrap());
+        let store = Arc::new(FasterKv::default());
         let monotonic_serial_number = Rc::new(RefCell::new(1));
 
         let value: u64 = 1337;
