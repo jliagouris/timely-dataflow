@@ -20,13 +20,25 @@ pub struct RocksDBMergeBackend {
     db: Rc<DB>,
 }
 
-fn merge_operator(
+// Appends elements to a vector
+fn merge_vectors(
     new_key: &[u8],
     existing_val: Option<&[u8]>,
     operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
-    // TODO: implement with merge function
-    unimplemented!()
+   
+   let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
+   existing_val.map(|v| {
+       for e in v {
+           result.push(*e)
+       }
+   });
+   for op in operands {
+       for e in op {
+           result.push(*e)
+       }
+   }
+   Some(result)
 }
 
 impl StateBackend for RocksDBMergeBackend {
@@ -37,13 +49,13 @@ impl StateBackend for RocksDBMergeBackend {
         block_based_options.set_lru_cache(256 * 1024 * 1024 * 1024); // 256 MB
         let mut options = Options::default();
         options.create_if_missing(true);
-        options.set_merge_operator("merge_operator", merge_operator, Some(merge_operator));
+        options.set_merge_operator("merge_vectors", merge_vectors, Some(merge_vectors));
         options.set_use_fsync(false);
         options.set_min_write_buffer_number(2);
         options.set_max_write_buffer_number(4);
         options.set_write_buffer_size(3 * 1024 * 1024 * 1024); // 3 GB
         options.set_block_based_table_factory(&block_based_options);
-        let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDB");
+        let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDBMerge");
         RocksDBMergeBackend { db: Rc::new(db) }
     }
 

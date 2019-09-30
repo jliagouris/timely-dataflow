@@ -63,6 +63,7 @@ where
         result
     }
 
+    // Apeends elements to vectors using 'merge'
     fn rmw(&mut self, key: K, modification: V) {
         let prefixed_key = self.prefix_key(&key);
         self.db.merge(&prefixed_key, bincode::serialize(&modification).unwrap());

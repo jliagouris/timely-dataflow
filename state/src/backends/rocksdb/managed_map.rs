@@ -63,6 +63,7 @@ where
         result
     }
 
+    // Updates values using get+put
     fn rmw(&mut self, key: K, modification: V) {
         let prefixed_key = self.prefix_key(&key);
         let db_vector = self.db.get(prefixed_key).unwrap();
