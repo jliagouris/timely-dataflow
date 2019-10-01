@@ -120,6 +120,7 @@ impl StateBackend for FASTERBackend {
         let faster_directory_string = faster_directory.to_str().unwrap();
         // TODO: check sizing
         let (tablesize, logsize) = read_faster_config();
+        println!("Configuring a FASTER instance with hash index {:?} and log size {:?}", tablesize, logsize);
         let mut builder = FasterKvBuilder::new(tablesize, logsize);
         builder
             .with_disk(faster_directory_string)
