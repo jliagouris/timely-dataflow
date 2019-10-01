@@ -193,22 +193,17 @@ mod tests {
         let key_3: u64 = 3;
         let value_3: u64 = 1333;
 
-        let ser_key: Vec<u8> = bincode::serialize(&key).expect("Cannot serialize key.");
-        let serialized_key = ser_key.as_slice();
-        let ser_key_2: Vec<u8> = bincode::serialize(&key_2).expect("Cannot serialize key 2.");
-        let serialized_key_2 = ser_key_2.as_slice();
-        let ser_key_3: Vec<u8> = bincode::serialize(&key_3).expect("Cannot serialize key 3.");
-        let serialized_key_3 = ser_key_3.as_slice();
-
         managed_map.insert(key, value);
         managed_map.insert(key_2, value_2);
         managed_map.insert(key_3, value_3);
         let mut iter = managed_map.iter(key);
 
-        //let Some((k, _)) = iter.next();
-        //assert_eq!(k.as_ref(), serialized_key);
-        //let Some((k_2, _)) = iter.next();
-        //assert_eq!(k_2.as_ref(), serialized_key_2);
+        let (k, _) = iter.next().unwrap();
+	let k_1: u64 = bincode::deserialize(k.as_ref()).unwrap();
+	//assert_eq!(k_1,key);
+        let (k2, _) = iter.next().unwrap();
+	let k_2: u64 = bincode::deserialize(k2.as_ref()).unwrap();
+        assert_eq!(k_2, key_2);
         //let Some((k_3, _)) = iter.next();
         //assert_eq!(k_3.as_ref(), serialized_key_3);
     }
