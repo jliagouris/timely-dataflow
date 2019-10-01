@@ -26,7 +26,6 @@ impl<K: 'static + FasterKey + Hash + Eq + std::fmt::Debug, V: 'static + FasterVa
 
     fn prefix_key(&self, key: &K) -> Vec<u8> {
         let mut serialised_key = bincode::serialize(key).unwrap();
-        println!("Key: {:?} - Serialized key: {:?}",key,serialised_key);
         let mut prefixed_key = self.name.clone();
         prefixed_key.append(&mut serialised_key);
         prefixed_key
