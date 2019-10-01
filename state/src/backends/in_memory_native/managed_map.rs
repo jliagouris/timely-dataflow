@@ -31,6 +31,10 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
+    fn get_key_prefix_length(&self) -> usize {
+        0
+    }
+
     fn insert(&mut self, key: K, value: V) {
         self.map.insert(key, Rc::new(value));
     }
