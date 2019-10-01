@@ -37,6 +37,10 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
+    fn get_key_prefix_length(self) -> usize {
+        self.name.len()
+    }
+
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
@@ -97,6 +101,7 @@ where
     // Returns the next value of the given DBIterator
     fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>, Rc<V>)> {
         if let Some((raw_key, raw_value)) = iter.next() {
+            let raw_key = &raw_key[self.name.len()..];  // Ignore prefix
             let key = Rc::new(
                 bincode::deserialize(unsafe {
                     std::slice::from_raw_parts(raw_key.as_ptr(), raw_key.len())
@@ -185,6 +190,7 @@ mod tests {
         options.create_if_missing(true);
         let db = DB::open(&options, directory.path()).expect("Unable to instantiate RocksDB");
         let mut managed_map = RocksDBManagedMap::new(Rc::new(db), &"");
+        let prefix_length = managed_map.name.len();
 
         let key: u64 = 1;
         let value: u64 = 1337;
@@ -196,16 +202,34 @@ mod tests {
         managed_map.insert(key, value);
         managed_map.insert(key_2, value_2);
         managed_map.insert(key_3, value_3);
+
+        // Get the iterator
         let mut iter = managed_map.iter(key);
 
+        // TODO (john): Deserialization should be transparent. The following is ugly but ok for now.
+
+        // Start iterating
         let (k, _) = iter.next().unwrap();
-	let k_1: u64 = bincode::deserialize(k.as_ref()).unwrap();
-	//assert_eq!(k_1,key);
+        let kk = &k[prefix_length..];  // Ignore prefix
+        let ki: u64 = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(kk.as_ptr(), kk.len())
+                }).unwrap();
+        assert_eq!(ki, key);
         let (k2, _) = iter.next().unwrap();
-	let k_2: u64 = bincode::deserialize(k2.as_ref()).unwrap();
-        assert_eq!(k_2, key_2);
-        //let Some((k_3, _)) = iter.next();
-        //assert_eq!(k_3.as_ref(), serialized_key_3);
+        let kk2 = &k2[prefix_length..];  // Ignore prefix
+        let ki2: u64 = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(kk2.as_ptr(), kk.len())
+                }).unwrap();
+        assert_eq!(ki2, key_2);
+        let (k3, _) = iter.next().unwrap();
+        let kk3 = &k3[prefix_length..];  // Ignore prefix
+        let ki3: u64 = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(kk3.as_ptr(), kk.len())
+                }).unwrap();
+        assert_eq!(ki3, key_3);
+
+        // Verify end of iteration
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
