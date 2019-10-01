@@ -12,7 +12,7 @@ use rocksdb::DBIterator;
 
 pub struct FASTERManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     faster: Arc<FasterKv>,
@@ -24,7 +24,7 @@ where
 
 impl<K, V> FASTERManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(
@@ -51,7 +51,7 @@ where
 
 impl<K, V> ManagedMap<K, V> for FASTERManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {

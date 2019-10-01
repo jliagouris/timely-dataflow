@@ -8,7 +8,7 @@ use rocksdb::DBIterator;
 
 pub struct InMemoryNativeManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     map: HashMap<K, Rc<V>>,
@@ -16,7 +16,7 @@ where
 
 impl<K, V> InMemoryNativeManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new() -> Self {
@@ -28,7 +28,7 @@ where
 
 impl<K, V> ManagedMap<K, V> for InMemoryNativeManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {

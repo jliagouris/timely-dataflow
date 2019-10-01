@@ -17,7 +17,7 @@ impl RocksDBManagedMap {
         }
     }
 
-    fn prefix_key<K: 'static + FasterKey + Hash + Eq>(&self, key: &K) -> Vec<u8> {
+    fn prefix_key<K: 'static + FasterKey + Hash + Eq + std::fmt::Debug>(&self, key: &K) -> Vec<u8> {
         let mut serialised_key = bincode::serialize(key).unwrap();
         let mut prefixed_key = self.name.clone();
         prefixed_key.append(&mut serialised_key);
@@ -27,7 +27,7 @@ impl RocksDBManagedMap {
 
 impl<K, V> ManagedMap<K, V> for RocksDBManagedMap
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {

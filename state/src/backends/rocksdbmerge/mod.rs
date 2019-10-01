@@ -72,7 +72,7 @@ impl StateBackend for RocksDBMergeBackend {
 
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
+        K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
         V: 'static + FasterValue + FasterRmw,
     {
         Box::new(RocksDBManagedMap::new(Rc::clone(&self.db), &name))

@@ -21,7 +21,7 @@ where
 
 impl<K, V> InMemoryManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
@@ -36,7 +36,7 @@ where
 
 impl<K, V> ManagedMap<K, V> for InMemoryManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {

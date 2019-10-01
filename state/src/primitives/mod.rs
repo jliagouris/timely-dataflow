@@ -19,7 +19,7 @@ pub trait ManagedValue<V: 'static + FasterValue + FasterRmw> {
 
 pub trait ManagedMap<K, V>
 where
-    K: FasterKey + Hash + Eq,
+    K: FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V);
