@@ -94,7 +94,6 @@ where
 
     // Returns a forward DBIterator starting from 'key'
     fn iter(&mut self, key: K) -> DBIterator {
-        println!("Got Iter");
         let prefixed_key = self.prefix_key(&key);
         self.db
             .iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
