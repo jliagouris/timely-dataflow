@@ -22,6 +22,7 @@ where
     K: FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
+    fn get_key_prefix_length(&self) -> usize;
     fn insert(&mut self, key: K, value: V);
     fn get(&self, key: &K) -> Option<Rc<V>>;
     fn remove(&mut self, key: &K) -> Option<V>;

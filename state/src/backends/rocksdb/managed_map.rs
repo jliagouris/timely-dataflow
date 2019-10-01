@@ -1,19 +1,26 @@
 use crate::primitives::ManagedMap;
 use faster_rs::{FasterKey, FasterRmw, FasterValue};
-use rocksdb::{WriteBatch, DB, DBIterator, Direction, IteratorMode};
+use rocksdb::{DBIterator, Direction, IteratorMode, WriteBatch, DB};
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub struct RocksDBManagedMap {
+pub struct RocksDBManagedMap<K, V> {
     db: Rc<DB>,
-    name: Vec<u8>
+    name: Vec<u8>,
+    key: PhantomData<K>,
+    value: PhantomData<V>,
 }
 
-impl RocksDBManagedMap {
+impl<K: 'static + FasterKey + Hash + Eq, V: 'static + FasterValue + FasterRmw>
+    RocksDBManagedMap<K, V>
+{
     pub fn new(db: Rc<DB>, name: &AsRef<str>) -> Self {
         RocksDBManagedMap {
             db,
             name: bincode::serialize(name.as_ref()).unwrap(),
+            key: PhantomData,
+            value: PhantomData,
         }
     }
 
@@ -24,13 +31,18 @@ impl RocksDBManagedMap {
         prefixed_key.append(&mut serialised_key);
         prefixed_key
     }
+
 }
 
-impl<K, V> ManagedMap<K, V> for RocksDBManagedMap
+impl<K, V> ManagedMap<K, V> for RocksDBManagedMap<K, V>
 where
     K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
+    fn get_key_prefix_length(&self) -> usize {
+        self.name.len()
+    }
+
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
@@ -83,13 +95,16 @@ where
 
     // Returns a forward DBIterator starting from 'key'
     fn iter(&mut self, key: K) -> DBIterator {
+        println!("Got Iter");
         let prefixed_key = self.prefix_key(&key);
-        self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
+        self.db
+            .iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
     }
 
     // Returns the next value of the given DBIterator
-    fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+    fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>, Rc<V>)> {
         if let Some((raw_key, raw_value)) = iter.next() {
+            let raw_key = &raw_key[self.name.len()..];  // Ignore prefix
             let key = Rc::new(
                 bincode::deserialize(unsafe {
                     std::slice::from_raw_parts(raw_key.as_ptr(), raw_key.len())
@@ -117,11 +132,11 @@ where
 mod tests {
     use super::RocksDBManagedMap;
     use crate::primitives::ManagedMap;
-    use rocksdb::{Options, DB, DBIterator};
+    use bincode;
+    use rocksdb::{DBIterator, Options, DB};
+    use std::convert::TryFrom;
     use std::rc::Rc;
     use tempfile::TempDir;
-    use bincode;
-    use std::convert::TryFrom;
 
     #[test]
     fn map_insert_get() {
@@ -178,6 +193,7 @@ mod tests {
         options.create_if_missing(true);
         let db = DB::open(&options, directory.path()).expect("Unable to instantiate RocksDB");
         let mut managed_map = RocksDBManagedMap::new(Rc::new(db), &"");
+        let prefix_length = managed_map.get_key_prefix_length();
 
         let key: u64 = 1;
         let value: u64 = 1337;
@@ -186,24 +202,54 @@ mod tests {
         let key_3: u64 = 3;
         let value_3: u64 = 1333;
 
-        let ser_key: Vec<u8> = bincode::serialize(&key).expect("Cannot serialize key.");
-        let serialized_key = ser_key.as_slice();
-        let ser_key_2: Vec<u8> = bincode::serialize(&key_2).expect("Cannot serialize key 2.");
-        let serialized_key_2 = ser_key_2.as_slice();
-        let ser_key_3: Vec<u8> = bincode::serialize(&key_3).expect("Cannot serialize key 3.");
-        let serialized_key_3 = ser_key_3.as_slice();
-        
-
         managed_map.insert(key, value);
         managed_map.insert(key_2, value_2);
         managed_map.insert(key_3, value_3);
+
+        // Get the iterator
         let mut iter = managed_map.iter(key);
 
-        //let Some((k, _)) = iter.next();
-        //assert_eq!(k.as_ref(), serialized_key);
-        //let Some((k_2, _)) = iter.next();
-        //assert_eq!(k_2.as_ref(), serialized_key_2);
-        //let Some((k_3, _)) = iter.next();
-        //assert_eq!(k_3.as_ref(), serialized_key_3);
+        // TODO (john): Deserialization should be transparent. The following is ugly but ok for now.
+
+        // Start iterating
+        let (k, _) = iter.next().unwrap();
+        let kk = &k[prefix_length..];  // Ignore prefix
+        let ki: u64 = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(kk.as_ptr(), kk.len())
+                }).unwrap();
+        assert_eq!(ki, key);
+        let (k2, _) = iter.next().unwrap();
+        let kk2 = &k2[prefix_length..];  // Ignore prefix
+        let ki2: u64 = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(kk2.as_ptr(), kk.len())
+                }).unwrap();
+        assert_eq!(ki2, key_2);
+        let (k3, _) = iter.next().unwrap();
+        let kk3 = &k3[prefix_length..];  // Ignore prefix
+        let ki3: u64 = bincode::deserialize(unsafe {
+                    std::slice::from_raw_parts(kk3.as_ptr(), kk.len())
+                }).unwrap();
+        assert_eq!(ki3, key_3);
+
+        // Verify end of iteration
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn db_contains() {
+        let directory = TempDir::new().unwrap();
+        let mut options = Options::default();
+        options.create_if_missing(true);
+        let db = DB::open(&options, directory.path()).expect("Unable to instantiate RocksDB");
+        let mut managed_map = RocksDBManagedMap::new(Rc::new(db), &"");
+
+        let key: u64 = 1;
+        let value: u64 = 1337;
+        let key_2: u64 = 2;
+        let value_2: u64 = 1338;
+        let key_3: u64 = 3;
+        let value_3: u64 = 1333;
+        managed_map.insert(key, value);
+        assert_eq!(managed_map.contains(&key), true);
     }
 }
