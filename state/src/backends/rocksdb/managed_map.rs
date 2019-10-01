@@ -12,7 +12,7 @@ pub struct RocksDBManagedMap<K, V> {
     value: PhantomData<V>,
 }
 
-impl<K: 'static + FasterKey + Hash + Eq, V: 'static + FasterValue + FasterRmw>
+impl<K: 'static + FasterKey + Hash + Eq + std::fmt::Debug, V: 'static + FasterValue + FasterRmw>
     RocksDBManagedMap<K, V>
 {
     pub fn new(db: Rc<DB>, name: &AsRef<str>) -> Self {
@@ -24,7 +24,7 @@ impl<K: 'static + FasterKey + Hash + Eq, V: 'static + FasterValue + FasterRmw>
         }
     }
 
-    fn prefix_key<K: 'static + FasterKey + Hash + Eq + std::fmt::Debug>(&self, key: &K) -> Vec<u8> {
+    fn prefix_key(&self, key: &K) -> Vec<u8> {
         let mut serialised_key = bincode::serialize(key).unwrap();
         println!("Key: {:?} - Serialized key: {:?}",key,serialised_key);
         let mut prefixed_key = self.name.clone();
