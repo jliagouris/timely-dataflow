@@ -41,7 +41,7 @@ where
     fn get_key_prefix_length(&self) -> usize {
         self.name.len()
     }
-  
+
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
@@ -94,6 +94,7 @@ where
 
     // Returns a forward DBIterator starting from 'key'
     fn iter(&mut self, key: K) -> DBIterator {
+        println!("Got Iter");
         let prefixed_key = self.prefix_key(&key);
         self.db
             .iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
