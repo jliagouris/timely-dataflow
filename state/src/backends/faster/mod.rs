@@ -19,6 +19,11 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::iter::FromIterator;
+use std::path::Path;
 
 #[allow(dead_code)]
 pub struct FASTERBackend {
@@ -74,6 +79,39 @@ fn faster_rmw<K: FasterKey, V: FasterValue + FasterRmw>(
     maybe_refresh_faster(faster, old_monotonic_serial_number);
 }
 
+// read faster configuration from a file
+fn read_faster_config() -> (u64, u64) {
+    let config_path = String::from("faster.config");
+    let file = File::open(config_path).expect("Config file not found or cannot be opened");
+    let content = BufReader::new(&file);
+    let mut tablesize = 0;
+    let mut logsize = 0;
+    for line in content.lines() {
+        let line = line.expect("Could not read the line");
+        let line = line.trim();
+        if line.starts_with("#") || line.starts_with(";") || line.is_empty() {
+            continue;
+        }
+        let tokens = Vec::from_iter(line.split_whitespace());
+        let name = tokens.first().unwrap();
+        let tokens = tokens.get(1..).unwrap();
+        let tokens = tokens.iter().filter(|t| !t.starts_with("="));
+        let tokens = tokens.take_while(|t| !t.starts_with("#") && !t.starts_with(";"));
+        let mut parameters = String::new();
+        tokens.for_each(|t| { parameters.push_str(t); parameters.push(' '); });
+        let parameters = parameters.split(',').map(|s| s.trim());
+        let parameters: Vec<String> = parameters.map(|s| s.to_string()).collect();
+
+        // Setting the config parameters
+        match name.to_lowercase().as_str() {
+            "tablesize" => tablesize = parameters.get(0).unwrap().parse::<u64>().expect("couldn't parse tablesize"),
+            "logsize" => logsize = parameters.get(0).unwrap().parse::<u64>().expect("couldn't parse logsize"),
+            _ => (),
+        }
+    }
+    (tablesize, logsize)
+}
+
 impl StateBackend for FASTERBackend {
     fn new() -> Self {
         let faster_directory = TempDir::new_in(".")
@@ -81,7 +119,8 @@ impl StateBackend for FASTERBackend {
             .into_path();
         let faster_directory_string = faster_directory.to_str().unwrap();
         // TODO: check sizing
-        let mut builder = FasterKvBuilder::new(1 << 24, 1 * 1024 * 1024 * 1024);
+        let (tablesize, logsize) = read_faster_config();
+        let mut builder = FasterKvBuilder::new(tablesize, logsize);
         builder
             .with_disk(faster_directory_string)
             .set_pre_allocate_log(true);
