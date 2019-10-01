@@ -39,10 +39,6 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
-    fn get_key_prefix_length(self) -> usize {
-        self.name.len()
-    }
-    
     fn insert(&mut self, key: K, value: V) {
         let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
             None => HashMap::new(),

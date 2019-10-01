@@ -30,6 +30,10 @@ impl<K: 'static + FasterKey + Hash + Eq, V: 'static + FasterValue + FasterRmw>
         prefixed_key.append(&mut serialised_key);
         prefixed_key
     }
+
+    fn get_key_prefix_length(&self) -> usize {
+        self.name.len()
+    }
 }
 
 impl<K, V> ManagedMap<K, V> for RocksDBManagedMap<K, V>
@@ -37,10 +41,7 @@ where
     K: 'static + FasterKey + Hash + Eq,
     V: 'static + FasterValue + FasterRmw,
 {
-    fn get_key_prefix_length(self) -> usize {
-        self.name.len()
-    }
-
+    
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
@@ -190,7 +191,7 @@ mod tests {
         options.create_if_missing(true);
         let db = DB::open(&options, directory.path()).expect("Unable to instantiate RocksDB");
         let mut managed_map = RocksDBManagedMap::new(Rc::new(db), &"");
-        let prefix_length = managed_map.name.len();
+        let prefix_length = managed_map.get_key_prefix_length();
 
         let key: u64 = 1;
         let value: u64 = 1337;
