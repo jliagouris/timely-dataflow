@@ -27,18 +27,15 @@ fn merge_vectors(
     operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
    
-   let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
-   existing_val.map(|v| {
-       for e in v {
-           result.push(*e)
-       }
-   });
-   for op in operands {
-       for e in op {
-           result.push(*e)
-       }
-   }
-   Some(result)
+   let mut result: Vec<(usize,usize)> = Vec::with_capacity(operands.size_hint().0);
+
+    if let Some(val) = existing_val {
+        result.extend(bincode::deserialize::<Vec<(usize,usize)>>(val).unwrap());
+    }
+    for operand in operands {
+        result.extend(bincode::deserialize::<Vec<(usize,usize)>>(operand).unwrap());
+    }
+    Some(bincode::serialize(&result).unwrap())
 }
 
 impl StateBackend for RocksDBMergeBackend {
