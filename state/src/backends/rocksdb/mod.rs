@@ -39,8 +39,8 @@ impl StateBackend for RocksDBBackend {
     fn new() -> Self {
         let directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
         let mut block_based_options = BlockBasedOptions::default();
-        block_based_options.set_block_size(128 * 1024 * 1024); // 128 KB
-        block_based_options.set_lru_cache(256 * 1024 * 1024 * 1024); // 256 MB
+        block_based_options.set_block_size(128 * 1024); // 128 KB
+        block_based_options.set_lru_cache(256 * 1024 * 1024); // 256 MB
         let mut options = Options::default();
         options.create_if_missing(true);
         options.set_merge_operator("merge_numbers", merge_numbers, Some(merge_numbers));
