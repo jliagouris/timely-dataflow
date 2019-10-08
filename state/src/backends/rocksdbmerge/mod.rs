@@ -44,13 +44,14 @@ fn merge_vectors(
 }
 
 // read RocksDB configuration from a file
-fn read_rocksdb_config() -> (usize, usize, usize) {
+fn read_rocksdb_config() -> (usize, usize, usize, u64) {
     let config_path = String::from("rocksdbmerge.config");
     let file = File::open(config_path).expect("Config file not found or cannot be opened");
     let content = BufReader::new(&file);
     let mut blocksize = 0;
     let mut lrusize = 0;
     let mut write_buffer_size = 0;
+    let mut hash_index_size = 0;
     for line in content.lines() {
         let line = line.expect("Could not read the line");
         let line = line.trim();
@@ -72,17 +73,18 @@ fn read_rocksdb_config() -> (usize, usize, usize) {
             "blocksize" => blocksize = parameters.get(0).unwrap().parse::<usize>().expect("couldn't parse tablesize"),
             "lrusize" => lrusize = parameters.get(0).unwrap().parse::<usize>().expect("couldn't parse logsize"),
             "writebuffersize" => write_buffer_size = parameters.get(0).unwrap().parse::<usize>().expect("couldn't parse writebuffersize"),
+            "hashindexsize" => hash_index_size = parameters.get(0).unwrap().parse::<u64>().expect("couldn't parse hashindexsize"),
             _ => (),
         }
     }
-    (blocksize, lrusize, write_buffer_size)
+    (blocksize, lrusize, write_buffer_size, hash_index_size)
 }
 
 impl StateBackend for RocksDBMergeBackend {
     fn new() -> Self {
         let directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
         let mut block_based_options = BlockBasedOptions::default();
-        let (block_size, lru_cache, write_buffer_size) = read_rocksdb_config();
+        let (block_size, lru_cache, write_buffer_size, hash_index_size) = read_rocksdb_config();
         println!("Configuring a RocksDB instance with block size {:?}, cache {:?}, and write buffer size {:?}",
                  block_size, lru_cache, write_buffer_size);
         block_based_options.set_block_size(block_size);
@@ -95,6 +97,7 @@ impl StateBackend for RocksDBMergeBackend {
         options.set_max_write_buffer_number(4);
         options.set_write_buffer_size(write_buffer_size);
         options.set_block_based_table_factory(&block_based_options);
+        options.optimize_for_point_lookup(hash_index_size);
         let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDBMerge");
         RocksDBMergeBackend { db: Rc::new(db) }
     }
