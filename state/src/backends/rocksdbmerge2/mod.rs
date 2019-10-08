@@ -84,8 +84,8 @@ impl StateBackend for RocksDBMergeBackend2 {
         let directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
         let mut block_based_options = BlockBasedOptions::default();
         let (block_size, lru_cache, write_buffer_size, hash_index_size) = read_rocksdb_config();
-        println!("Configuring a RocksDB instance with block size {:?}, cache {:?}, and write buffer size {:?}",
-                 block_size, lru_cache, write_buffer_size);
+        println!("Configuring a RocksDB instance with block size {:?}, cache {:?}, write buffer size {:?}, and hash index size {:?}",
+                 block_size, lru_cache, write_buffer_size, hash_index_size);
         block_based_options.set_block_size(block_size);
         block_based_options.set_lru_cache(lru_cache);
         let mut options = Options::default();
