@@ -1,108 +1,109 @@
-use crate::backends::faster::{faster_read, faster_rmw, faster_upsert};
+use crate::backends::faster_in_memory::{faster_read, faster_rmw, faster_upsert};
 use crate::primitives::ManagedMap;
-use crate::Rmw;
 use bincode::serialize;
-use faster_rs::FasterKv;
+use faster_rs::{status, FasterKey, FasterKv, FasterRmw, FasterValue};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use serde::de::DeserializeOwned;
-use std::time::Instant;
-use serde::Serialize;
 
-pub struct FASTERManagedMap
+pub struct FASTERManagedMap<K, V>
+where
+    K: 'static + FasterKey + Hash + Eq,
+    V: 'static + FasterValue + FasterRmw,
 {
     faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     serialised_name: Vec<u8>,
+    key: PhantomData<K>,
+    value: PhantomData<V>,
 }
 
-impl FASTERManagedMap
+impl<K, V> FASTERManagedMap<K, V>
+where
+    K: 'static + FasterKey + Hash + Eq,
+    V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(
         faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
         name: &str,
     ) -> Self {
-        let start = Instant::now();
-        let serialised_name = bincode::serialize(name).unwrap();
-        let end = Instant::now();
-        let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        counter!("serialisation", time_taken);
-        counter!("total_serialisation", time_taken);
         FASTERManagedMap {
             faster,
             monotonic_serial_number,
-            serialised_name,
+            serialised_name: serialize(name).unwrap(),
+            key: PhantomData,
+            value: PhantomData,
         }
     }
 
-    fn prefix_key<K: Serialize>(&self, key: &K) -> Vec<u8> {
-        let start = Instant::now();
-        let mut serialised_key = bincode::serialize(key).unwrap();
-        let end = Instant::now();
-        let time_taken = end.duration_since(start).subsec_nanos() as u64;
+    fn prefix_key(&self, key: &K) -> Vec<u8> {
+        let mut serialised_key = serialize(key).unwrap();
         let mut prefixed_key = self.serialised_name.clone();
         prefixed_key.append(&mut serialised_key);
         prefixed_key
     }
 }
 
-impl<K, V> ManagedMap<K, V> for FASTERManagedMap
+impl<K, V> ManagedMap<K, V> for FASTERManagedMap<K, V>
 where
-    K: 'static + Serialize + Hash + Eq,
-    V: 'static + DeserializeOwned + Serialize + Rmw,
+    K: 'static + FasterKey + Hash + Eq,
+    V: 'static + FasterValue + FasterRmw,
 {
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
-        let start = Instant::now();
-        let serialised_value = bincode::serialize(&value).unwrap();
-        let end = Instant::now();
-        let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        counter!("serialisation", time_taken);
-        counter!("total_serialisation", time_taken);
         faster_upsert(
             &self.faster,
             &prefixed_key,
-            &serialised_value,
+            &value,
             &self.monotonic_serial_number,
         );
     }
 
     fn get(&self, key: &K) -> Option<Rc<V>> {
         let prefixed_key = self.prefix_key(key);
-        let val = faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
-        val.map(|v| Rc::new(v))
+        let (status, recv) =
+            faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(Rc::new(val)),
+            Err(_) => None,
+        };
     }
 
     fn remove(&mut self, key: &K) -> Option<V> {
         let prefixed_key = self.prefix_key(key);
-        faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number)
+        let (status, recv) =
+            faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(val),
+            Err(_) => None,
+        };
     }
 
     fn rmw(&mut self, key: K, modification: V) {
         let prefixed_key = self.prefix_key(&key);
-        let start = Instant::now();
-        let serialised_modification = bincode::serialize(&modification).unwrap();
-        let end = Instant::now();
-        let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        counter!("serialisation", time_taken);
-        counter!("total_serialisation", time_taken);
-        faster_rmw::<_,_,V>(
+        faster_rmw(
             &self.faster,
             &prefixed_key,
-            serialised_modification,
+            &modification,
             &self.monotonic_serial_number,
         );
     }
 
     fn contains(&self, key: &K) -> bool {
         let prefixed_key = self.prefix_key(key);
-        let val: Option<V> = faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
-        val.is_some()
+        let (status, _): (u8, Receiver<V>) =
+            faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
+        return status == status::OK;
     }
 }
 
@@ -111,7 +112,7 @@ mod tests {
     extern crate faster_rs;
     extern crate tempfile;
 
-    use crate::backends::faster::FASTERManagedMap;
+    use super::FASTERManagedMap;
     use crate::primitives::ManagedMap;
     use faster_rs::FasterKv;
     use std::cell::RefCell;

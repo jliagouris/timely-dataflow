@@ -1,21 +1,19 @@
-use crate::backends::faster::{faster_read, faster_rmw, faster_upsert};
+use crate::backends::faster_node::{faster_read, faster_rmw, faster_upsert};
 use crate::primitives::ManagedValue;
-use crate::Rmw;
-use faster_rs::FasterKv;
+use faster_rs::{status, FasterKv, FasterRmw, FasterValue};
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::time::Instant;
 
-pub struct FASTERManagedValue {
+pub struct FASTERManagedValue<V: 'static + FasterValue + FasterRmw> {
     faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     name: String,
+    value: PhantomData<V>,
 }
 
-impl FASTERManagedValue {
+impl<V: 'static + FasterValue + FasterRmw> FASTERManagedValue<V> {
     pub fn new(
         faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
@@ -25,45 +23,47 @@ impl FASTERManagedValue {
             faster,
             monotonic_serial_number,
             name: name.to_owned(),
+            value: PhantomData,
         }
     }
 }
 
-impl<V: 'static + DeserializeOwned + Serialize + Rmw> ManagedValue<V> for FASTERManagedValue {
+impl<V: 'static + FasterValue + FasterRmw> ManagedValue<V> for FASTERManagedValue<V> {
     fn set(&mut self, value: V) {
-        let start = Instant::now();
-        let serialised_value = bincode::serialize(&value).unwrap();
-        let end = Instant::now();
-        let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        counter!("serialisation", time_taken);
-        counter!("total_serialisation", time_taken);
         faster_upsert(
             &self.faster,
             &self.name,
-            &serialised_value,
+            &value,
             &self.monotonic_serial_number,
         );
     }
     fn get(&self) -> Option<Rc<V>> {
-        let val = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
-        val.map(|v| Rc::new(v))
+        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(Rc::new(val)),
+            Err(_) => None,
+        };
     }
 
     fn take(&mut self) -> Option<V> {
-        faster_read(&self.faster, &self.name, &self.monotonic_serial_number)
+        let (status, recv) = faster_read(&self.faster, &self.name, &self.monotonic_serial_number);
+        if status != status::OK {
+            return None;
+        }
+        return match recv.recv() {
+            Ok(val) => Some(val),
+            Err(_) => None,
+        };
     }
 
     fn rmw(&mut self, modification: V) {
-        let start = Instant::now();
-        let serialised_modification = bincode::serialize(&modification).unwrap();
-        let end = Instant::now();
-        let time_taken = end.duration_since(start).subsec_nanos() as u64;
-        counter!("serialisation", time_taken);
-        counter!("total_serialisation", time_taken);
-        faster_rmw::<_,_,V>(
+        faster_rmw(
             &self.faster,
             &self.name,
-            serialised_modification,
+            &modification,
             &self.monotonic_serial_number,
         );
     }
@@ -74,7 +74,7 @@ mod tests {
     extern crate faster_rs;
     extern crate tempfile;
 
-    use crate::backends::faster::FASTERManagedValue;
+    use super::FASTERManagedValue;
     use crate::primitives::ManagedValue;
     use faster_rs::FasterKv;
     use std::cell::RefCell;
