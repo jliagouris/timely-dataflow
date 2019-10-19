@@ -26,7 +26,7 @@ pub trait StateBackend: 'static {
     ) -> Box<ManagedValue<V>>;
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + Serialize + Hash + Eq,
+        K: 'static + Serialize + Hash + Eq + std::fmt::Debug,
         V: 'static + DeserializeOwned + Serialize + Rmw;
 }
 
@@ -65,7 +65,7 @@ impl<S: StateBackend> StateHandle<S> {
 
     pub fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K:  'static + Serialize + Hash + Eq,
+        K:  'static + Serialize + Hash + Eq + std::fmt::Debug,
         V:  'static + DeserializeOwned + Serialize + Rmw,
     {
         let mut physical_name = self.name.clone();

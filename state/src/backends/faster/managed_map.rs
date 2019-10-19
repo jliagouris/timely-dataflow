@@ -13,15 +13,15 @@ use serde::de::DeserializeOwned;
 use std::time::Instant;
 use serde::Serialize;
 
-pub struct FASTERManagedMap
-{
+use rocksdb::DBIterator;
+
+pub struct FASTERManagedMap {
     faster: Arc<FasterKv>,
     monotonic_serial_number: Rc<RefCell<u64>>,
     serialised_name: Vec<u8>,
 }
 
-impl FASTERManagedMap
-{
+impl FASTERManagedMap {
     pub fn new(
         faster: Arc<FasterKv>,
         monotonic_serial_number: Rc<RefCell<u64>>,
@@ -53,9 +53,13 @@ impl FASTERManagedMap
 
 impl<K, V> ManagedMap<K, V> for FASTERManagedMap
 where
-    K: 'static + Serialize + Hash + Eq,
+    K: 'static + Serialize + Hash + Eq + std::fmt::Debug,
     V: 'static + DeserializeOwned + Serialize + Rmw,
 {
+    fn get_key_prefix_length(&self) -> usize {
+        self.serialised_name.len()
+    }
+
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let start = Instant::now();
@@ -103,6 +107,14 @@ where
         let prefixed_key = self.prefix_key(key);
         let val: Option<V> = faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
         val.is_some()
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("FASTER's managed map does not support iteration.");
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        panic!("FASTER's managed map does not support iteration.");
     }
 }
 

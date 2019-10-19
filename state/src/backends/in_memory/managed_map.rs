@@ -8,6 +8,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use rocksdb::DBIterator;
 
 pub struct InMemoryManagedMap
 {
@@ -27,9 +28,13 @@ impl InMemoryManagedMap
 
 impl<K, V> ManagedMap<K, V> for InMemoryManagedMap
 where
-    K: 'static + Serialize + Hash + Eq,
+    K: 'static + Serialize + Hash + Eq + std::fmt::Debug,
     V: 'static + DeserializeOwned + Serialize + Rmw,
 {
+    fn get_key_prefix_length(&self) -> usize {
+        unimplemented!()
+    }
+
     fn insert(&mut self, key: K, value: V) {
         let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
             None => HashMap::new(),
@@ -129,6 +134,14 @@ where
             .borrow_mut()
             .insert(self.name.clone(), Rc::new(inner_map));
         result
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        unimplemented!()
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>, Rc<V>)> {
+        unimplemented!()
     }
 }
 

@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use rocksdb::DBIterator;
 
 pub trait ManagedCount {
     fn decrease(&mut self, amount: i64);
@@ -20,12 +21,16 @@ pub trait ManagedValue<V: 'static + DeserializeOwned + Serialize + Rmw> {
 
 pub trait ManagedMap<K, V>
 where
-    K: 'static + Serialize + Hash + Eq,
+    K: 'static + Serialize + Hash + Eq + std::fmt::Debug,
     V: 'static + DeserializeOwned + Serialize + Rmw,
 {
+    fn get_key_prefix_length(&self) -> usize;
     fn insert(&mut self, key: K, value: V);
     fn get(&self, key: &K) -> Option<Rc<V>>;
     fn remove(&mut self, key: &K) -> Option<V>;
     fn rmw(&mut self, key: K, modification: V);
     fn contains(&self, key: &K) -> bool;
+    // Implemented only for RocksDB
+    fn iter(&mut self, key: K) -> DBIterator;
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)>;
 }

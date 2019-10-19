@@ -40,7 +40,7 @@ impl StateBackend for InMemoryBackend {
 
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + Serialize + Hash + Eq,
+        K: 'static + Serialize + Hash + Eq + std::fmt::Debug,
         V: 'static + DeserializeOwned + Serialize + Rmw,
     {
         Box::new(InMemoryManagedMap::new(name, Rc::clone(&self.backend)))

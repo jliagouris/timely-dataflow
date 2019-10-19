@@ -23,7 +23,6 @@ serde = "1.0"
 serde_derive = "1.0"
 abomonation = "0.7"
 abomonation_derive = "0.3"
-faster-rs = { git = "https://github.com/faster-rs/faster-rs.git", branch = "remove-serialisation-measure-locking" }
 tempfile = "3"
 timely_bytes = { path = "../bytes", version = "0.9" }
 timely_logging = { path = "../logging", version = "0.9" }
@@ -33,3 +32,7 @@ timely_state = { path = "../state", version = "0.1.0" }
 [dev-dependencies]
 timely_sort="0.1.6"
 rand="0.4"
+
+[dependencies.faster-rs]
+git = "https://github.com/matthewbrookes/faster-rs"
+branch="remove-serialisation-measure-locking"
