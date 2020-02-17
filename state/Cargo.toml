@@ -6,9 +6,13 @@ edition = "2018"
 
 [dependencies]
 bincode = "1.1.2"
-faster-rs = "0.9"
 tempfile = "3"
 
 [dependencies.rocksdb]
 git = "https://github.com/matthewbrookes/rust-rocksdb"
 branch = "master"
+
+[dependencies.faster-rs]
+git = "https://github.com/matthewbrookes/faster-rs"
+branch="deletion-logscan"
+

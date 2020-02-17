@@ -31,7 +31,7 @@ impl StateBackend for InMemoryNativeBackend {
 
     fn get_managed_map<K, V>(&self, _name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
+        K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
         V: 'static + FasterValue + FasterRmw,
     {
         Box::new(InMemoryNativeManagedMap::new())

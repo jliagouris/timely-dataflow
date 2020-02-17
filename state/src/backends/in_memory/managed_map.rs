@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use rocksdb::DBIterator;
 
 pub struct InMemoryManagedMap<K, V>
 where
@@ -20,7 +21,7 @@ where
 
 impl<K, V> InMemoryManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(name: &str, backend: Rc<RefCell<HashMap<String, Rc<Any>>>>) -> Self {
@@ -35,9 +36,13 @@ where
 
 impl<K, V> ManagedMap<K, V> for InMemoryManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
+    fn get_key_prefix_length(&self) -> usize {
+        self.name.len()
+    }
+
     fn insert(&mut self, key: K, value: V) {
         let mut inner_map: HashMap<K, Rc<V>> = match self.backend.borrow_mut().remove(&self.name) {
             None => HashMap::new(),
@@ -137,6 +142,14 @@ where
             .borrow_mut()
             .insert(self.name.clone(), Rc::new(inner_map));
         result
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("In-memory managed map does not support iteration.");
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        panic!("In-memory managed map does not support iteration.");
     }
 }
 

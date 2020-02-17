@@ -8,10 +8,11 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
+use rocksdb::DBIterator;
 
 pub struct FASTERManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     faster: Arc<FasterKv>,
@@ -23,7 +24,7 @@ where
 
 impl<K, V> FASTERManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
     pub fn new(
@@ -50,9 +51,13 @@ where
 
 impl<K, V> ManagedMap<K, V> for FASTERManagedMap<K, V>
 where
-    K: 'static + FasterKey + Hash + Eq,
+    K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
     V: 'static + FasterValue + FasterRmw,
 {
+    fn get_key_prefix_length(&self) -> usize {
+        self.serialised_name.len()
+    }
+
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         faster_upsert(
@@ -104,6 +109,14 @@ where
         let (status, _): (u8, Receiver<V>) =
             faster_read(&self.faster, &prefixed_key, &self.monotonic_serial_number);
         return status == status::OK;
+    }
+
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("FASTER's managed map does not support iteration.");
+    }
+
+    fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
+        panic!("FASTER's managed map does not support iteration.");
     }
 }
 

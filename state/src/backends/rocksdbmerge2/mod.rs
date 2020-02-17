@@ -21,16 +21,18 @@ mod managed_count;
 mod managed_map;
 mod managed_value;
 
-pub struct RocksDBBackend {
+pub struct RocksDBMergeBackend2 {
     db: Rc<DB>,
 }
 
-fn merge_numbers(
+// Adds counts
+fn merge_count(
     new_key: &[u8],
     existing_val: Option<&[u8]>,
     operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
-    let mut result: i64 = 0;
+   
+   let mut result: i64 = 0;
     if let Some(val) = existing_val {
         result += bincode::deserialize::<i64>(val).unwrap();
     }
@@ -42,7 +44,7 @@ fn merge_numbers(
 
 // read RocksDB configuration from a file
 fn read_rocksdb_config() -> (usize, usize, usize, u64) {
-    let config_path = String::from("rocksdb.config");
+    let config_path = String::from("rocksdbmerge2.config");
     let file = File::open(config_path).expect("Config file not found or cannot be opened");
     let content = BufReader::new(&file);
     let mut blocksize = 0;
@@ -77,27 +79,26 @@ fn read_rocksdb_config() -> (usize, usize, usize, u64) {
     (blocksize, lrusize, write_buffer_size, hash_index_size)
 }
 
-impl StateBackend for RocksDBBackend {
+impl StateBackend for RocksDBMergeBackend2 {
     fn new() -> Self {
-        let directory = TempDir::new_in(".").expect("Unable to create directory for RocksDB");
+        let directory = TempDir::new_in(".").expect("Unable to create directory for FASTER");
         let mut block_based_options = BlockBasedOptions::default();
         let (block_size, lru_cache, write_buffer_size, hash_index_size) = read_rocksdb_config();
         println!("Configuring a RocksDB instance with block size {:?}, cache {:?}, write buffer size {:?}, and hash index size {:?}",
                  block_size, lru_cache, write_buffer_size, hash_index_size);
         block_based_options.set_block_size(block_size);
         block_based_options.set_lru_cache(lru_cache);
-        block_based_options.set_cache_index_and_filter_blocks(true);
         let mut options = Options::default();
         options.create_if_missing(true);
-        options.set_merge_operator("merge_numbers", merge_numbers, Some(merge_numbers));
+        options.set_merge_operator("merge_count", merge_count, Some(merge_count));
         options.set_use_fsync(false);
         options.set_min_write_buffer_number(2);
         options.set_max_write_buffer_number(4);
         options.set_write_buffer_size(write_buffer_size);
         options.set_block_based_table_factory(&block_based_options);
         options.optimize_for_point_lookup(hash_index_size);
-        let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDB");
-        RocksDBBackend { db: Rc::new(db) }
+        let db = DB::open(&options, directory.into_path()).expect("Unable to instantiate RocksDBMerge");
+        RocksDBMergeBackend2 { db: Rc::new(db) }
     }
 
     fn get_managed_count(&self, name: &str) -> Box<ManagedCount> {

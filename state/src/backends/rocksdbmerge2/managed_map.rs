@@ -37,7 +37,7 @@ where
     fn get_key_prefix_length(&self) -> usize {
         self.name.len()
     }
-
+    
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
@@ -71,7 +71,7 @@ where
         result
     }
 
-    // Appends elements to vectors using 'merge'
+    // Updates counts using 'merge'
     fn rmw(&mut self, key: K, modification: V) {
         let prefixed_key = self.prefix_key(&key);
         self.db.merge(&prefixed_key, bincode::serialize(&modification).unwrap());

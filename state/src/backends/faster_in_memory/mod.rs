@@ -101,8 +101,8 @@ impl StateBackend for FASTERInMemoryBackend {
 
     fn get_managed_map<K, V>(&self, name: &str) -> Box<ManagedMap<K, V>>
     where
-        K: 'static + FasterKey + Hash + Eq,
-        V: 'static + FasterValue + FasterRmw,
+        K: 'static + FasterKey + Hash + Eq + std::fmt::Debug,
+        V: 'static + FasterValue + FasterRmw
     {
         Box::new(FASTERManagedMap::new(
             Arc::clone(&self.faster),
