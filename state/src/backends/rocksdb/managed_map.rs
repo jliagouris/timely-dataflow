@@ -95,23 +95,12 @@ where
     // Returns a forward DBIterator starting from 'key'
     fn iter(&mut self, key: K) -> DBIterator {
         let prefixed_key = self.prefix_key(&key);
-<<<<<<< HEAD
         self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
     }
 
     // Returns the next value of the given DBIterator
     fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
         if let Some((raw_key, raw_value)) = iter.next() {
-=======
-        self.db
-            .iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
-    }
-
-    // Returns the next value of the given DBIterator
-    fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>, Rc<V>)> {
-        if let Some((raw_key, raw_value)) = iter.next() {
-            let raw_key = &raw_key[self.name.len()..];  // Ignore prefix
->>>>>>> 8e93b11eac8b495c6f3a509692076c1fa9bbe0e8
             let key = Rc::new(
                 bincode::deserialize(unsafe {
                     std::slice::from_raw_parts(raw_key.as_ptr(), raw_key.len())
