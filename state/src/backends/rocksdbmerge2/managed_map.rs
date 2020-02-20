@@ -1,6 +1,6 @@
 use crate::primitives::ManagedMap;
 use faster_rs::{FasterKey, FasterRmw, FasterValue};
-use rocksdb::{WriteBatch, DB, DBIterator, Direction, IteratorMode};
+use rocksdb::{WriteBatch, DB, DBRawIterator, DBIterator, Direction, IteratorMode};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -37,7 +37,7 @@ where
     fn get_key_prefix_length(&self) -> usize {
         self.name.len()
     }
-    
+
     fn insert(&mut self, key: K, value: V) {
         let prefixed_key = self.prefix_key(&key);
         let mut batch = WriteBatch::default();
@@ -78,10 +78,23 @@ where
     }
 
     // Returns a forward DBIterator starting from 'key'
-    fn iter(&mut self, key: K) -> DBIterator {
-        let prefixed_key = self.prefix_key(&key);
+    fn iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
+        let prefixed_key = match key_extractor {
+                                Some(extractor) => self.prefix_key(&extractor(key)),
+                                None => self.prefix_key(&key)
+                            };
         self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
     }
+
+    // // Returns a forward DBRawIterator starting from 'key'
+    // // TODO (john): Make this more general using a key extractor method
+    // fn prefix_iter(&mut self, key: K, key_extractor: &dyn Fn(K) -> K) -> DBRawIterator {
+    //     let mut iter: DBRawIterator = self.db.raw_iterator();
+    //     // Prefix is always the first element of the pair
+    //     let prefixed_key = self.prefix_key(&key_extractor(key));
+    //     iter.seek(prefixed_key);
+    //     iter
+    // }
 
     // Returns the next value of the given DBIterator
     fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {

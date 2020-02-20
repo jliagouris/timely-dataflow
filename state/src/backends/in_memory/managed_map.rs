@@ -144,7 +144,7 @@ where
         result
     }
 
-    fn iter(&mut self, key: K) -> DBIterator {
+    fn iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
         panic!("In-memory managed map does not support iteration.");
     }
 
