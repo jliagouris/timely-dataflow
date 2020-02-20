@@ -29,6 +29,7 @@ where
     fn rmw(&mut self, key: K, modification: V);
     fn contains(&self, key: &K) -> bool;
     // Implemented only for RocksDB
-    fn iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator;
+    fn iter(&mut self, key: K) -> DBIterator;
+    fn prefix_iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator;
     fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)>;
 }

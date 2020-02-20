@@ -78,11 +78,17 @@ where
     }
 
     // Returns a forward DBIterator starting from 'key'
-    fn iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
+    fn prefix_iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
         let prefixed_key = match key_extractor {
                                 Some(extractor) => self.prefix_key(&extractor(key)),
                                 None => self.prefix_key(&key)
                             };
+        self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
+    }
+
+    // Returns a forward DBIterator starting from 'key'
+    fn iter(&mut self, key: K) -> DBIterator {
+        let prefixed_key = self.prefix_key(&key);
         self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
     }
 

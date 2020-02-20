@@ -65,7 +65,11 @@ where
         self.map.contains_key(key)
     }
 
-    fn iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("In-memory managed map does not support iteration.");
+    }
+
+    fn prefix_iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
         panic!("In-memory managed map does not support iteration.");
     }
 

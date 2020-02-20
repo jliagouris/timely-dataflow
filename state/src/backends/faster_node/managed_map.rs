@@ -111,7 +111,11 @@ where
         return status == status::OK;
     }
 
-    fn iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
+    fn iter(&mut self, key: K) -> DBIterator {
+        panic!("FASTER's managed map does not support iteration.");
+    }
+
+    fn prefix_iter(&mut self, key: K, key_extractor: Option<&dyn Fn(K) -> K>) -> DBIterator {
         panic!("FASTER's managed map does not support iteration.");
     }
 
