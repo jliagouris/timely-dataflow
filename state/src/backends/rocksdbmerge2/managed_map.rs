@@ -92,16 +92,6 @@ where
         self.db.iterator(IteratorMode::From(&prefixed_key, Direction::Forward))
     }
 
-    // // Returns a forward DBRawIterator starting from 'key'
-    // // TODO (john): Make this more general using a key extractor method
-    // fn prefix_iter(&mut self, key: K, key_extractor: &dyn Fn(K) -> K) -> DBRawIterator {
-    //     let mut iter: DBRawIterator = self.db.raw_iterator();
-    //     // Prefix is always the first element of the pair
-    //     let prefixed_key = self.prefix_key(&key_extractor(key));
-    //     iter.seek(prefixed_key);
-    //     iter
-    // }
-
     // Returns the next value of the given DBIterator
     fn next(&mut self, mut iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
         if let Some((raw_key, raw_value)) = iter.next() {
@@ -120,6 +110,14 @@ where
             return Some((key, value));
         }
         None
+    }
+
+    fn delete_range(&mut self, from: K, to: K) {
+        let prefixed_from = self.prefix_key(&from);
+        let prefixed_to = self.prefix_key(&to);
+        let mut batch = WriteBatch::default();
+        batch.delete_range(prefixed_from,prefixed_to);
+        self.db.write(batch);
     }
 
     fn contains(&self, key: &K) -> bool {

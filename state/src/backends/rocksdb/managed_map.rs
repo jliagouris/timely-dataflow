@@ -127,6 +127,14 @@ where
         None
     }
 
+    fn delete_range(&mut self, from: K, to: K) {
+        let prefixed_from = self.prefix_key(&from);
+        let prefixed_to = self.prefix_key(&to);
+        let mut batch = WriteBatch::default();
+        batch.delete_range(prefixed_from,prefixed_to);
+        self.db.write(batch);
+    }
+
     fn contains(&self, key: &K) -> bool {
         let prefixed_key = self.prefix_key(key);
         self.db.get(prefixed_key).is_ok()

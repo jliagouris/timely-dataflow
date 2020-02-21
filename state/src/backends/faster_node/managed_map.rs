@@ -122,6 +122,10 @@ where
     fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
         panic!("FASTER's managed map does not support iteration.");
     }
+
+    fn delete_range(&mut self, from: K, to: K) {
+        panic!("FASTER backend does not implement delete_range().");
+    }
 }
 
 #[cfg(test)]

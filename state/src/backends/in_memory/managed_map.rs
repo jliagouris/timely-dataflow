@@ -155,6 +155,10 @@ where
     fn next(&mut self, iter: DBIterator) -> Option<(Rc<K>,Rc<V>)> {
         panic!("In-memory managed map does not support iteration.");
     }
+
+    fn delete_range(&mut self, from: K, to: K) {
+        panic!("In-Memory backend does not implement delete_range().");
+    }
 }
 
 #[cfg(test)]
